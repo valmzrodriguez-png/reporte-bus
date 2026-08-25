@@ -2011,3 +2011,755 @@ tfoot td {
     }
 
 }
+
+
+/* =====================================================
+   PULIDO VISUAL (sombras suaves, hover, tabla, estados)
+===================================================== */
+
+:root {
+
+    --radius-lg:
+        16px;
+
+    --radius-md:
+        12px;
+
+    --shadow-soft:
+        0 1px 2px rgba(
+            23,
+            32,
+            51,
+            0.05
+        ),
+        0 14px 36px -18px rgba(
+            30,
+            64,
+            175,
+            0.16
+        );
+
+}
+
+
+.panel {
+
+    border-radius:
+        var(--radius-lg);
+
+    box-shadow:
+        var(--shadow-soft);
+
+}
+
+
+/* --- Tabla: scroll con header fijo y bordes sutiles --- */
+
+.table-container {
+
+    max-height:
+        60vh;
+
+    overflow:
+        auto;
+
+    border-radius:
+        14px;
+
+    scrollbar-width:
+        thin;
+
+    scrollbar-color:
+        #c7d5ea transparent;
+
+}
+
+
+.table-container::-webkit-scrollbar {
+
+    width:
+        10px;
+
+    height:
+        10px;
+
+}
+
+
+.table-container::-webkit-scrollbar-track {
+
+    background:
+        transparent;
+
+}
+
+
+.table-container::-webkit-scrollbar-thumb {
+
+    background-color:
+        #c7d5ea;
+
+    background-clip:
+        padding-box;
+
+    border:
+        2px solid transparent;
+
+    border-radius:
+        999px;
+
+}
+
+
+.table-container::-webkit-scrollbar-thumb:hover {
+
+    background-color:
+        #a8bedd;
+
+}
+
+
+thead th {
+
+    position:
+        sticky;
+
+    top:
+        0;
+
+    z-index:
+        2;
+
+    background:
+        #f0f5fd;
+
+    box-shadow:
+        inset 0 -1px 0 var(--border);
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        .06em;
+
+    font-size:
+        11.5px;
+
+    color:
+        #44546a;
+
+}
+
+
+tfoot td {
+
+    position:
+        sticky;
+
+    bottom:
+        0;
+
+    z-index:
+        1;
+
+}
+
+
+#weeklyTable th:nth-child(n+4),
+#weeklyTable td:nth-child(n+4),
+#weeklyTable tfoot td:not(.total-label) {
+
+    text-align:
+        right;
+
+}
+
+
+#weeklyTable td,
+#weeklyTable th {
+
+    font-variant-numeric:
+        tabular-nums;
+
+}
+
+
+tbody td {
+
+    transition:
+        background-color .15s ease;
+
+}
+
+
+tbody tr:hover {
+
+    background:
+        #f2f7ff;
+
+}
+
+
+tbody tr:hover td:first-child {
+
+    box-shadow:
+        inset 3px 0 0 var(--blue);
+
+}
+
+
+/* --- Estados vacíos --- */
+
+.empty-state {
+
+    padding:
+        36px 24px;
+
+    border:
+        1.5px dashed var(--border);
+
+    border-radius:
+        14px;
+
+    background:
+        #fbfdff;
+
+    font-size:
+        13.5px;
+
+}
+
+
+/* --- Botones --- */
+
+.btn {
+
+    border-radius:
+        var(--radius-md);
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease,
+        background-color .15s ease;
+
+}
+
+
+.btn:hover {
+
+    transform:
+        translateY(-2px);
+
+}
+
+
+.btn:active {
+
+    transform:
+        translateY(0);
+
+    transition-duration:
+        .05s;
+
+}
+
+
+.btn-primary:hover {
+
+    box-shadow:
+        0 14px 28px -12px rgba(37, 99, 235, .55);
+
+}
+
+
+.btn-action:hover {
+
+    background:
+        #23304a;
+
+    box-shadow:
+        0 14px 28px -14px rgba(23, 32, 51, .5);
+
+}
+
+
+.btn-outline:hover {
+
+    background:
+        var(--blue-light);
+
+}
+
+
+.btn:focus-visible,
+.unit-card:focus-visible,
+.btn-delete:focus-visible {
+
+    outline:
+        3px solid rgba(37, 99, 235, .3);
+
+    outline-offset:
+        2px;
+
+}
+
+
+/* --- Tarjetas de unidades y métricas --- */
+
+.unit-card {
+
+    border-radius:
+        14px;
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease,
+        border-color .15s ease,
+        background-color .15s ease;
+
+}
+
+
+.unit-card:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        var(--shadow-soft);
+
+}
+
+
+.unit-card.activa {
+
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, .18);
+
+}
+
+
+.summary-card {
+
+    border-radius:
+        var(--radius-lg);
+
+    transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        border-color .18s ease;
+
+}
+
+
+.summary-card:hover {
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        var(--shadow-soft);
+
+    border-color:
+        #c9d9f2;
+
+}
+
+
+.summary-card > span {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        8px;
+
+    font-size:
+        11.5px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        .07em;
+
+    text-transform:
+        uppercase;
+
+}
+
+
+.summary-card > span::before {
+
+    content:
+        "";
+
+    flex:
+        none;
+
+    width:
+        8px;
+
+    height:
+        8px;
+
+    border-radius:
+        50%;
+
+    background:
+        var(--blue);
+
+}
+
+
+.deposit-card > span::before {
+
+    background:
+        var(--green);
+
+}
+
+
+.weekly-summary .summary-card:last-child > span::before {
+
+    background:
+        #94a3b8;
+
+}
+
+
+/* --- Historial --- */
+
+.history-item {
+
+    border-radius:
+        14px;
+
+    transition:
+        border-color .15s ease,
+        background-color .15s ease;
+
+}
+
+
+.history-item:hover {
+
+    border-color:
+        #c9d9f2;
+
+    background:
+        #f6fafe;
+
+}
+
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    .btn,
+    .unit-card,
+    .summary-card,
+    .history-item {
+
+        transition:
+            none;
+
+    }
+
+
+    .btn:hover,
+    .unit-card:hover,
+    .summary-card:hover {
+
+        transform:
+            none;
+
+    }
+
+}
+
+
+/* =====================================================
+   LAYOUT DASHBOARD (ESCRITORIO ≥1024PX)
+===================================================== */
+
+@media (
+    min-width: 1024px
+) {
+
+    .app-shell {
+
+        max-width:
+            1400px;
+
+        padding:
+            36px 40px 72px;
+
+    }
+
+
+    .layout {
+
+        grid-template-columns:
+            minmax(0, 24rem) minmax(0, 1fr);
+
+        gap:
+            28px;
+
+        align-items:
+            start;
+
+    }
+
+
+    .form-panel {
+
+        grid-area:
+            1 / 1;
+
+    }
+
+
+    .units-panel {
+
+        grid-area:
+            2 / 1;
+
+    }
+
+
+    .preview-panel {
+
+        grid-area:
+            1 / 2;
+
+    }
+
+
+    .history-panel {
+
+        grid-area:
+            2 / 2;
+
+    }
+
+
+    .panel {
+
+        padding:
+            30px 32px;
+
+    }
+
+
+    .panel-title h2 {
+
+        font-size:
+            26px;
+
+        letter-spacing:
+            -.02em;
+
+    }
+
+
+    .field > span {
+
+        font-size:
+            13.5px;
+
+    }
+
+
+    input,
+    select,
+    textarea {
+
+        padding:
+            14px 15px;
+
+        font-size:
+            15px;
+
+    }
+
+
+    .btn {
+
+        padding:
+            14px 24px;
+
+        font-size:
+            14.5px;
+
+    }
+
+
+    .calculation-box {
+
+        padding:
+            18px;
+
+        gap:
+            14px;
+
+    }
+
+
+    .calculation-box strong {
+
+        font-size:
+            24px;
+
+    }
+
+
+    .weekly-summary {
+
+        gap:
+            18px;
+
+        margin:
+            28px 0;
+
+    }
+
+
+    .summary-card {
+
+        padding:
+            24px 26px;
+
+    }
+
+
+    .summary-card strong {
+
+        margin-top:
+            8px;
+
+        font-size:
+            30px;
+
+        letter-spacing:
+            -.03em;
+
+    }
+
+
+    .preview-header h2 {
+
+        font-size:
+            30px;
+
+    }
+
+
+    table {
+
+        min-width:
+            860px;
+
+    }
+
+
+    th,
+    td {
+
+        padding:
+            14px 14px;
+
+        font-size:
+            13px;
+
+    }
+
+
+    .units-list {
+
+        gap:
+            16px;
+
+    }
+
+
+    .history-list {
+
+        margin-top:
+            22px;
+
+        gap:
+            12px;
+
+    }
+
+
+    .history-header input {
+
+        max-width:
+            360px;
+
+    }
+
+
+    .actions,
+    .pdf-options {
+
+        gap:
+            14px;
+
+    }
+
+
+    .pdf-options {
+
+        margin-top:
+            28px;
+
+    }
+
+}
+
+
+/* Tablet ancho: centrar sin estirar en exceso */
+@media (
+    min-width: 751px
+) and (max-width: 1023px) {
+
+    .app-shell {
+
+        max-width:
+            880px;
+
+    }
+
+}
+
+
+/* Impresión: sin alturas fijas ni posiciones pegajosas */
+@media print {
+
+    .table-container {
+
+        max-height:
+            none;
+
+        overflow:
+            visible;
+
+    }
+
+
+    thead th,
+    tfoot td {
+
+        position:
+            static;
+
+    }
+
+}
