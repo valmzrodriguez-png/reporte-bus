@@ -349,7 +349,8 @@ function actualizarCamposGasto() {
    ===================================================== */
 
 function calcularValoresFormulario() {
-    /* Solo los días con producción aportan montos */
+    /* Solo los días con producción aportan montos de ingreso;
+       en Parada quedan en $0.00 */
     const enProduccion = estadoDiaSelect.value === "produccion";
 
     const produccion = enProduccion ? num($id("produccionTotal").value) : 0;
@@ -366,9 +367,9 @@ function calcularValoresFormulario() {
     /* Conductor ($) = Producción total × (% / 100) */
     const conductorMonto = produccion * (conductorPorcentaje / 100);
 
-    const sumaGastos = enProduccion
-        ? leerGastosFormulario().reduce((s, g) => s + g.monto, 0)
-        : 0;
+    /* Los gastos adicionales aplican también en días de
+       Parada (ej. reparaciones); el Depósito los refleja */
+    const sumaGastos = leerGastosFormulario().reduce((s, g) => s + g.monto, 0);
 
     /* Depósito ($) = Producción − Combustible − Administración
        − Alimentación/Limpieza − Conductor ($) − Gastos adicionales */
@@ -388,8 +389,9 @@ function calcularValoresFormulario() {
     };
 }
 
-/* Estado distinto a "Día con producción": deshabilita
-   los montos y pone todo en $0.00 */
+/* Estado "Parada": deshabilita los campos de producción e
+   ingresos y pone todo en $0.00. Los gastos adicionales
+   siguen disponibles y el Depósito los refleja solos */
 function aplicarEstadoDia() {
     const enProduccion = estadoDiaSelect.value === "produccion";
     const camposMonto = ["produccionTotal", "combustible", "administracion",
@@ -400,11 +402,6 @@ function aplicarEstadoDia() {
         if (!enProduccion) campo.value = "";
         campo.disabled = !enProduccion;
     });
-
-    if (!enProduccion) {
-        tieneGastoSelect.value = "no";
-    }
-    tieneGastoSelect.disabled = !enProduccion;
 
     /* Atenúa visualmente el bloque de montos */
     $id("productionFields").classList.toggle("dia-inactivo", !enProduccion);
@@ -474,9 +471,10 @@ form.addEventListener("submit", async (e) => {
     /* Suma total de todos los gastos adicionales ingresados */
     const gastos = leerGastosFormulario();
 
-    /* Concatena los conceptos: "Llanta ($10.00), Aceite ($15.00)" */
+    /* Concatena los conceptos: "Llanta ($10.00), Aceite ($15.00)".
+       Aplica también en días de Parada con gastos */
     const conceptoGastos =
-        v.enProduccion && v.sumaGastos > 0
+        v.sumaGastos > 0
             ? gastos
                   .filter((g) => g.monto > 0)
                   .map((g) => `${g.concepto || "Gasto adicional"} (${fmtMoneda(g.monto)})`)

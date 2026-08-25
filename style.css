@@ -3630,8 +3630,8 @@ tbody tr:hover td:first-child {
 }
 
 
-/* Día sin producción / franco: los montos se atenúan;
-   el Depósito ($0.00) permanece legible */
+/* Estado "Parada": los montos de producción e ingresos se
+   atenúan; el Depósito sigue legible y los gastos activos */
 .dia-inactivo .calculo-grid > .field:not(.field-wide) {
 
     opacity:
