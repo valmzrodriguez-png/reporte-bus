@@ -120,8 +120,13 @@ function normalizarRegistro(fila) {
         ruta: fila.ruta || "",
         fecha: fila.fecha,
         dia: nombreDia(fila.fecha),
+        /* Filas antiguas sin las columnas nuevas → 0 / default */
+        estadoDia: fila.estado_dia || "produccion",
         produccion: num(fila.produccion_bruta),
         combustible: num(fila.combustible),
+        administracion: num(fila.administracion),
+        alimentacionLimpieza: num(fila.alimentacion_limpieza),
+        conductorMonto: num(fila.conductor_monto),
         gastoAdicional: montoGasto
             ? {
                 concepto: fila.concepto_gastos || "Gasto adicional",
@@ -267,6 +272,7 @@ const form = $id("reportForm");
 const fechaInput = $id("fecha");
 const diaSemanaInput = $id("diaSemana");
 const tieneGastoSelect = $id("tieneGastoAdicional");
+const estadoDiaSelect = $id("estadoDia");
 
 /* =====================================================
    GASTOS ADICIONALES DINÁMICOS (filas múltiples)
@@ -336,17 +342,83 @@ function actualizarCamposGasto() {
     calcularEnVivo();
 }
 
+/* =====================================================
+   MOTOR DE CÁLCULO — Detalle de producción
+   Única fuente de verdad: la usan el cálculo en vivo
+   y el guardado en Supabase.
+   ===================================================== */
+
+function calcularValoresFormulario() {
+    /* Solo los días con producción aportan montos */
+    const enProduccion = estadoDiaSelect.value === "produccion";
+
+    const produccion = enProduccion ? num($id("produccionTotal").value) : 0;
+    const combustible = enProduccion ? num($id("combustible").value) : 0;
+    const administracion = enProduccion ? num($id("administracion").value) : 0;
+    const alimentacionLimpieza = enProduccion
+        ? num($id("alimentacionLimpieza").value)
+        : 0;
+
+    const conductorPorcentaje = enProduccion
+        ? num($id("conductorPorcentaje").value)
+        : 0;
+
+    /* Conductor ($) = Producción total × (% / 100) */
+    const conductorMonto = produccion * (conductorPorcentaje / 100);
+
+    const sumaGastos = enProduccion
+        ? leerGastosFormulario().reduce((s, g) => s + g.monto, 0)
+        : 0;
+
+    /* Depósito ($) = Producción − Combustible − Administración
+       − Alimentación/Limpieza − Conductor ($) − Gastos adicionales */
+    const deposito = produccion - combustible - administracion
+        - alimentacionLimpieza - conductorMonto - sumaGastos;
+
+    return {
+        enProduccion,
+        produccion,
+        combustible,
+        administracion,
+        alimentacionLimpieza,
+        conductorPorcentaje,
+        conductorMonto,
+        sumaGastos,
+        deposito,
+    };
+}
+
+/* Estado distinto a "Día con producción": deshabilita
+   los montos y pone todo en $0.00 */
+function aplicarEstadoDia() {
+    const enProduccion = estadoDiaSelect.value === "produccion";
+    const camposMonto = ["produccionTotal", "combustible", "administracion",
+        "alimentacionLimpieza", "conductorPorcentaje"];
+
+    camposMonto.forEach((idCampo) => {
+        const campo = $id(idCampo);
+        if (!enProduccion) campo.value = "";
+        campo.disabled = !enProduccion;
+    });
+
+    if (!enProduccion) {
+        tieneGastoSelect.value = "no";
+    }
+    tieneGastoSelect.disabled = !enProduccion;
+
+    /* Atenúa visualmente el bloque de montos */
+    $id("productionFields").classList.toggle("dia-inactivo", !enProduccion);
+
+    actualizarCamposGasto();
+}
+
 function calcularEnVivo() {
-    const produccion = num($id("produccionTotal").value);
-    const combustible = num($id("combustible").value);
+    const v = calcularValoresFormulario();
 
-    /* Depósito = Producción − Combustible − Suma total de gastos */
-    const sumaGastos = leerGastosFormulario().reduce((s, g) => s + g.monto, 0);
-    const deposito = produccion - combustible - sumaGastos;
-
-    $id("deposito").value = nf.format(deposito);
-    $id("resumenProduccion").textContent = fmtMoneda(produccion);
-    $id("resumenDeposito").textContent = fmtMoneda(deposito);
+    $id("conductorMonto").value = nf.format(v.conductorMonto);
+    $id("deposito").value = nf.format(v.deposito);
+    $id("resumenProduccion").textContent = fmtMoneda(v.produccion);
+    $id("resumenDeposito").textContent = fmtMoneda(v.deposito);
 }
 
 fechaInput.addEventListener("change", () => {
@@ -354,6 +426,8 @@ fechaInput.addEventListener("change", () => {
 });
 
 tieneGastoSelect.addEventListener("change", actualizarCamposGasto);
+
+estadoDiaSelect.addEventListener("change", aplicarEstadoDia);
 
 on("addGastoBtn", "click", () => agregarFilaGasto(true));
 
@@ -377,9 +451,11 @@ $id("gastosLista").addEventListener("click", (e) => {
     calcularEnVivo();
 });
 
-["produccionTotal", "combustible"].forEach((idCampo) => {
-    $id(idCampo).addEventListener("input", calcularEnVivo);
-});
+/* Recalculo en tiempo real mientras el usuario escribe */
+["produccionTotal", "combustible", "administracion",
+    "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
+        $id(idCampo).addEventListener("input", calcularEnVivo);
+    });
 
 let guardando = false;
 
@@ -392,17 +468,15 @@ form.addEventListener("submit", async (e) => {
     }
     if (guardando) return;
 
-    const produccion = num($id("produccionTotal").value);
-    const combustible = num($id("combustible").value);
+    /* Todos los valores derivados del motor de cálculo */
+    const v = calcularValoresFormulario();
 
     /* Suma total de todos los gastos adicionales ingresados */
     const gastos = leerGastosFormulario();
-    const gastoTotal = gastos.reduce((s, g) => s + g.monto, 0);
-    const deposito = produccion - combustible - gastoTotal;
 
     /* Concatena los conceptos: "Llanta ($10.00), Aceite ($15.00)" */
     const conceptoGastos =
-        tieneGastoSelect.value === "si" && gastoTotal > 0
+        v.enProduccion && v.sumaGastos > 0
             ? gastos
                   .filter((g) => g.monto > 0)
                   .map((g) => `${g.concepto || "Gasto adicional"} (${fmtMoneda(g.monto)})`)
@@ -413,11 +487,16 @@ form.addEventListener("submit", async (e) => {
         unidad: $id("numeroUnidad").value.trim(),
         ruta: $id("ruta").value.trim(),
         fecha: fechaInput.value,
-        produccion_bruta: produccion,
-        combustible: combustible,
-        gastos_adicionales: gastoTotal,
+        estado_dia: estadoDiaSelect.value,
+        produccion_bruta: v.produccion,
+        combustible: v.combustible,
+        administracion: v.administracion,
+        alimentacion_limpieza: v.alimentacionLimpieza,
+        conductor_porcentaje: v.conductorPorcentaje,
+        conductor_monto: v.conductorMonto,
+        gastos_adicionales: v.sumaGastos,
         concepto_gastos: conceptoGastos,
-        deposito: deposito,
+        deposito: v.deposito,
     };
 
     guardando = true;
@@ -457,6 +536,7 @@ function reiniciarFormulario(limpiarTodo) {
     }
     fechaInput.value = hoyISO();
     diaSemanaInput.value = nombreDia(fechaInput.value);
+    estadoDiaSelect.value = "produccion";
     tieneGastoSelect.value = "no";
     actualizarCamposGasto();
     calcularEnVivo();
@@ -1196,7 +1276,7 @@ function vincularBarraReportes() {
 async function inicializarApp() {
     fechaInput.value = hoyISO();
     diaSemanaInput.value = nombreDia(fechaInput.value);
-    actualizarCamposGasto();
+    aplicarEstadoDia();
     calcularEnVivo();
 
     try {

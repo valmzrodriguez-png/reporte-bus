@@ -3555,3 +3555,104 @@ tbody tr:hover td:first-child {
     }
 
 }
+
+
+/* =====================================================
+   DETALLE DE PRODUCCIÓN — campos de cálculo
+===================================================== */
+
+/* Filas de 2 columnas con separación compacta */
+.calculo-grid {
+
+    gap:
+        12px;
+
+}
+
+
+/* Input con sufijo %: el símbolo es un elemento aparte
+   y jamás tapa la cifra */
+.percent-input > span {
+
+    padding:
+        0 14px 0 0;
+
+    color:
+        var(--muted);
+
+    font-weight:
+        700;
+
+}
+
+
+.percent-input input {
+
+    text-align:
+        right;
+
+    /* Reserva espacio para los controles del number */
+    padding-right:
+        26px;
+
+}
+
+
+/* Montos numéricos: cifra siempre visible junto al $ */
+.money-input input[type="number"] {
+
+    padding-right:
+        26px;
+
+}
+
+
+/* Conductor ($): campo calculado automáticamente */
+.money-input.calculado {
+
+    border-color:
+        #c7d8f8;
+
+    background:
+        var(--blue-light);
+
+}
+
+
+.money-input.calculado input {
+
+    color:
+        var(--blue-dark);
+
+    font-weight:
+        800;
+
+}
+
+
+/* Día sin producción / franco: los montos se atenúan;
+   el Depósito ($0.00) permanece legible */
+.dia-inactivo .calculo-grid > .field:not(.field-wide) {
+
+    opacity:
+        .55;
+
+}
+
+
+@media (
+    max-width: 640px
+) {
+
+    /* Móvil: las parejas de inputs se apilan a 1 columna */
+    .calculo-grid {
+
+        grid-template-columns:
+            1fr;
+
+        gap:
+            10px;
+
+    }
+
+}
