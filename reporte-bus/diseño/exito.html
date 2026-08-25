@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punto de venta — Panadería La Espiga</title>
+<style>
+  :root {
+    --bg:      oklch(98% 0.005 250);
+    --surface: oklch(100% 0 0);
+    --fg:      oklch(22% 0.02 240);
+    --muted:   oklch(50% 0.018 240);
+    --border:  oklch(90% 0.008 240);
+    --accent:  oklch(58% 0.16 145);
+
+    --font-display: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --font-body:    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+    /* derivados */
+    --fg-soft:     color-mix(in oklch, var(--fg) 6%, transparent);
+    --hover-bg:    color-mix(in oklch, var(--fg) 5%, transparent);
+    --accent-deep: color-mix(in oklch, var(--accent) 86%, black);
+
+    /* estado */
+    --warn:     oklch(80% 0.14 85);
+    --warn-bg:  color-mix(in oklch, oklch(80% 0.14 85) 14%, var(--surface));
+    --warn-brd: color-mix(in oklch, oklch(80% 0.14 85) 45%, var(--border));
+    --warn-ink: oklch(48% 0.11 80);
+
+    --radius: 12px;
+    --radius-lg: 16px;
+    --container: 1080px;
+    --cta-h: 88px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button { font: inherit; cursor: pointer; }
+
+  :is(a, button):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .num  { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .container { max-width: var(--container); margin-inline: auto; padding-inline: 24px; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  /* ─── Cabecera ─────────────────────────────────────── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in oklch, var(--surface) 85%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .topbar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 56px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 650;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+
+  .brand svg { display: block; }
+
+  .topbar__meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .topbar__meta .num { font-size: 13px; }
+
+  /* ─── Rejilla principal ────────────────────────────── */
+  .pos-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+    align-items: start;
+    padding-block: 28px 24px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+  }
+
+  /* ─── Cantidad (héroe) ─────────────────────────────── */
+  .qty-panel .eyebrow { display: flex; align-items: center; gap: 8px; }
+
+  .qty-hero {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+    padding: 12px;
+  }
+
+  .step-btn {
+    width: 72px;
+    height: 72px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--fg);
+    display: grid;
+    place-items: center;
+    transition: background-color .12s ease, transform .05s ease;
+  }
+
+  .step-btn:hover { background: var(--hover-bg); }
+  .step-btn:active { transform: translateY(1px); }
+  .step-btn svg { width: 26px; height: 26px; }
+
+  .qty-value {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(64px, 9vw, 92px);
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    min-width: 2ch;
+  }
+
+  .qty-unit {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .qty-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .chip {
+    min-width: 60px;
+    height: 48px;
+    padding-inline: 16px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 17px;
+    transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+  }
+
+  .chip:hover { color: var(--fg); background: var(--hover-bg); }
+
+  .chip[aria-pressed="true"] {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+  }
+
+  .price-meta {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ─── Panel de opciones ────────────────────────────── */
+  .opt + .opt { margin-top: 24px; }
+
+  .seg {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+  }
+
+  .seg button {
+    flex: 1;
+    height: 44px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color .12s ease, color .12s ease;
+  }
+
+  .seg button:hover { color: var(--fg); background: var(--hover-bg); }
+
+  .seg button[aria-pressed="true"] {
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  .hint {
+    display: none;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .hint.show { display: block; }
+
+  .date-input {
+    display: none;
+    margin-top: 8px;
+    width: 100%;
+    height: 44px;
+    padding-inline: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--fg);
+    font: inherit;
+  }
+
+  .date-input.show { display: block; }
+
+  .client-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .client-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 48px;
+    padding-inline: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--fg);
+    text-align: left;
+    transition: background-color .12s ease, border-color .12s ease;
+  }
+
+  .client-btn:hover { background: var(--hover-bg); }
+
+  .client-btn[aria-checked="true"] {
+    border-color: var(--fg);
+    background: var(--fg-soft);
+    font-weight: 600;
+  }
+
+  .client-btn svg {
+    width: 18px;
+    height: 18px;
+    opacity: 0;
+    flex: none;
+  }
+
+  .client-btn[aria-checked="true"] svg { opacity: 1; }
+
+  /* Deuda: solo con cliente específico */
+  .debt-alert {
+    display: none;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--warn-brd);
+    border-radius: 10px;
+    background: var(--warn-bg);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .debt-alert.show { display: flex; gap: 10px; align-items: flex-start; }
+
+  .debt-alert svg { width: 18px; height: 18px; flex: none; margin-top: 1px; stroke: var(--warn-ink); }
+
+  .debt-alert strong { color: var(--warn-ink); font-weight: 650; }
+
+  .debt-alert .num { font-weight: 600; }
+
+  /* ─── CTA masiva ───────────────────────────────────── */
+  .cta-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    padding: 14px 24px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 78%, transparent);
+  }
+
+  .confirm-btn {
+    width: 100%;
+    max-width: var(--container);
+    margin-inline: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: var(--cta-h);
+    padding: 16px 32px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--surface);
+    transition: background-color .12s ease, transform .05s ease;
+  }
+
+  .confirm-btn:hover { background: var(--accent-deep); }
+  .confirm-btn:active { transform: translateY(1px); }
+
+  .confirm-btn .label {
+    font-size: clamp(19px, 2.4vw, 24px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .confirm-btn .total {
+    text-align: right;
+    line-height: 1.15;
+  }
+
+  .confirm-btn .total .amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(22px, 3vw, 30px);
+    font-weight: 700;
+  }
+
+  .confirm-btn .total .detail {
+    font-size: 13px;
+    opacity: 0.85;
+  }
+
+  /* ─── Pie / ayudas ─────────────────────────────────── */
+  .page-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 140px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  kbd {
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 11px;
+  }
+
+  /* ─── Overlay de éxito ─────────────────────────────── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: none;
+    place-items: center;
+    background: color-mix(in oklab, var(--fg) 38%, transparent);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  .overlay.show { display: grid; }
+
+  .success-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 64px -32px color-mix(in oklab, var(--fg) 45%, transparent);
+    padding: 36px 44px;
+    text-align: center;
+    animation: pop .22s ease;
+  }
+
+  @keyframes pop {
+    from { transform: scale(.94); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  .success-card .check {
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: grid;
+    place-items: center;
+  }
+
+  .success-card h3 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; }
+
+  .success-card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+
+  /* ─── Móvil ────────────────────────────────────────── */
+  @media (max-width: 920px) {
+    .pos-grid { grid-template-columns: 1fr; padding-block: 20px 16px; }
+    .panel { padding: 20px; }
+    .step-btn { width: 60px; height: 60px; }
+    .topbar__meta .clock-wrap { display: none; }
+    .page-meta { padding-bottom: 132px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar" data-od-id="pos-header">
+  <div class="container topbar__inner">
+    <span class="brand" data-od-id="brand-logo">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect width="22" height="22" rx="6" fill="var(--accent)"/>
+        <path d="M5 11h12" style="stroke: var(--surface);" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M7.5 7h7M7.5 15h7" style="stroke: var(--surface);" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+      </svg>
+      La Espiga · Punto de venta
+    </span>
+    <div class="topbar__meta mono">
+      <span>Ventas hoy: <span id="sales-count">0</span></span>
+      <span class="clock-wrap num" id="clock">--:--</span>
+    </div>
+  </div>
+</header>
+
+<main id="content">
+  <div class="container pos-grid">
+
+    <!-- CANTIDAD: héroe -->
+    <section class="panel qty-panel" data-od-id="qty-hero" aria-labelledby="qty-label">
+      <p class="eyebrow" id="qty-label">Cantidad de fundas</p>
+
+      <div class="qty-hero">
+        <button class="step-btn" id="btn-minus" aria-label="Quitar una funda">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/></svg>
+        </button>
+
+        <div>
+          <div class="qty-value" id="qty-value" aria-live="polite" aria-atomic="true">1</div>
+          <span class="qty-unit">fundas</span>
+        </div>
+
+        <button class="step-btn" id="btn-plus" aria-label="Agregar una funda">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="qty-shortcuts" role="group" aria-label="Atajos de cantidad" data-od-id="qty-shortcuts">
+        <button class="chip" data-qty="1" aria-pressed="true">1</button>
+        <button class="chip" data-qty="2" aria-pressed="false">2</button>
+        <button class="chip" data-qty="3" aria-pressed="false">3</button>
+        <button class="chip" data-qty="5" aria-pressed="false">5</button>
+        <button class="chip" data-qty="10" aria-pressed="false">10</button>
+        <button class="chip" data-qty="12" aria-pressed="false">12</button>
+      </div>
+
+      <p class="price-meta mono">$2.50 × funda · pan del día</p>
+    </section>
+
+    <!-- Opciones secundarias -->
+    <section class="panel" data-od-id="sale-options" aria-label="Detalles de la venta">
+
+      <div class="opt" data-od-id="txn-type">
+        <p class="eyebrow">Tipo de transacción</p>
+        <div class="seg" role="group" aria-label="Tipo de transacción">
+          <button id="txn-contado" aria-pressed="true">Contado</button>
+          <button id="txn-credito" aria-pressed="false">Crédito</button>
+        </div>
+        <p class="hint" id="credito-hint">El crédito requiere un cliente registrado.</p>
+      </div>
+
+      <div class="opt" data-od-id="sale-date">
+        <p class="eyebrow">Fecha</p>
+        <div class="seg" role="group" aria-label="Fecha de la venta">
+          <button id="date-hoy" aria-pressed="true">Hoy</button>
+          <button id="date-otra" aria-pressed="false">Otra fecha</button>
+        </div>
+        <input class="date-input" type="date" id="date-input" aria-label="Elegir fecha">
+      </div>
+
+      <div class="opt" data-od-id="client-select">
+        <p class="eyebrow">Cliente</p>
+        <div class="client-list" role="radiogroup" aria-label="Cliente">
+          <button class="client-btn" data-client="publico" aria-checked="true" role="radio">
+            Público general
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10.5l4 4L16 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="client-btn" data-client="maria" aria-checked="false" role="radio">
+            María González
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10.5l4 4L16 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="client-btn" data-client="lupe" aria-checked="false" role="radio">
+            Tienda Doña Lupe
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10.5l4 4L16 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div class="debt-alert" id="debt-alert" role="status" data-od-id="debt-alert">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 3.5L18 16.5H2L10 3.5z" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M10 8.5v3.5" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="10" cy="14.3" r="0.9" fill="currentColor" stroke="none"/>
+          </svg>
+          <span id="debt-text"></span>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="container page-meta" data-od-id="page-meta">
+    <span>Datos de demostración · precios y clientes de ejemplo</span>
+    <span><kbd>1–9</kbd> cantidad · <kbd>+</kbd>/<kbd>−</kbd> ajusta · <kbd>Enter</kbd> confirma</span>
+  </div>
+</main>
+
+<!-- CTA masiva -->
+<div class="cta-bar" data-od-id="confirm-cta">
+  <div class="container">
+    <button class="confirm-btn" id="btn-confirm">
+      <span class="label">Confirmar venta</span>
+      <span class="total">
+        <span class="amount" id="cta-total">$2.50</span>
+        <span class="detail" id="cta-detail">1 funda</span>
+      </span>
+    </button>
+  </div>
+</div>
+
+<!-- Confirmación -->
+<div class="overlay" id="overlay" data-od-id="success-overlay">
+  <div class="success-card" role="alertdialog" aria-live="polite" aria-label="Venta registrada">
+    <div class="check">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <path d="M8 17.5l6.5 6.5L26 10.5" style="stroke: var(--surface);" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h3>Venta registrada</h3>
+    <p class="mono" id="success-detail"></p>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var PRICE = 2.50;
+
+    var CLIENTS = {
+      publico: null,
+      maria:   { name: 'María González',   debt: 45.00 },
+      lupe:    { name: 'Tienda Doña Lupe', debt: 120.00 }
+    };
+
+    var state = { qty: 1, txn: 'contado', dateMode: 'hoy', client: 'publico' };
+    var keyBuffer = '';
+    var keyTimer;
+
+    var $ = function (id) { return document.getElementById(id); };
+    var qtyValue = $('qty-value');
+    var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+    var debtAlert = $('debt-alert');
+    var debtText = $('debt-text');
+    var creditoHint = $('credito-hint');
+    var ctaTotal = $('cta-total');
+    var ctaDetail = $('cta-detail');
+
+    function money(n) { return '$' + n.toFixed(2); }
+
+    function render() {
+      qtyValue.textContent = state.qty;
+
+      chips.forEach(function (c) {
+        c.setAttribute('aria-pressed', String(Number(c.dataset.qty) === state.qty));
+      });
+
+      $('txn-contado').setAttribute('aria-pressed', String(state.txn === 'contado'));
+      $('txn-credito').setAttribute('aria-pressed', String(state.txn === 'credito'));
+      creditoHint.classList.toggle('show', state.txn === 'credito' && state.client === 'publico');
+
+      $('date-hoy').setAttribute('aria-pressed', String(state.dateMode === 'hoy'));
+      $('date-otra').setAttribute('aria-pressed', String(state.dateMode === 'otra'));
+      $('date-input').classList.toggle('show', state.dateMode === 'otra');
+
+      document.querySelectorAll('.client-btn').forEach(function (b) {
+        b.setAttribute('aria-checked', String(b.dataset.client === state.client));
+      });
+
+      var client = CLIENTS[state.client];
+      if (client && client.debt > 0) {
+        debtText.innerHTML = '<strong>' + client.name + '</strong> registra <span class="num">' +
+          money(client.debt) + '</span> pendientes en cuentas.';
+        debtAlert.classList.add('show');
+      } else {
+        debtAlert.classList.remove('show');
+      }
+
+      var total = state.qty * PRICE;
+      ctaTotal.textContent = money(total);
+      ctaDetail.textContent = state.qty + (state.qty === 1 ? ' funda' : ' fundas') +
+        (state.txn === 'credito' ? ' · crédito' : '');
+    }
+
+    function setQty(n) {
+      state.qty = Math.min(99, Math.max(1, n));
+      render();
+    }
+
+    $('btn-minus').addEventListener('click', function () { setQty(state.qty - 1); });
+    $('btn-plus').addEventListener('click', function () { setQty(state.qty + 1); });
+
+    chips.forEach(function (c) {
+      c.addEventListener('click', function () { setQty(Number(c.dataset.qty)); });
+    });
+
+    $('txn-contado').addEventListener('click', function () { state.txn = 'contado'; render(); });
+    $('txn-credito').addEventListener('click', function () { state.txn = 'credito'; render(); });
+
+    $('date-hoy').addEventListener('click', function () { state.dateMode = 'hoy'; render(); });
+    $('date-otra').addEventListener('click', function () { state.dateMode = 'otra'; render(); });
+
+    document.querySelectorAll('.client-btn').forEach(function (b) {
+      b.addEventListener('click', function () { state.client = b.dataset.client; render(); });
+    });
+
+    /* Fecha por defecto: hoy */
+    var today = new Date();
+    var fmt = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short' });
+    $('date-hoy').textContent = 'Hoy · ' + fmt.format(today).replace('.', '');
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    $('date-input').value = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+
+    /* Reloj */
+    function tick() {
+      $('clock').textContent = new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    }
+    tick();
+    setInterval(tick, 15000);
+
+    /* Confirmar venta */
+    var salesToday = 0;
+    var overlay = $('overlay');
+
+    function confirmSale() {
+      var total = state.qty * PRICE;
+      $('success-detail').textContent = money(total) + ' · ' + state.qty +
+        (state.qty === 1 ? ' funda' : ' fundas') +
+        (state.txn === 'credito' ? ' al crédito' : ' al contado');
+      overlay.classList.add('show');
+
+      setTimeout(function () {
+        overlay.classList.remove('show');
+        salesToday += 1;
+        $('sales-count').textContent = salesToday;
+        state.qty = 1;
+        render();
+      }, 1100);
+    }
+
+    $('btn-confirm').addEventListener('click', confirmSale);
+
+    document.addEventListener('keydown', function (e) {
+      var tag = document.activeElement && document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || overlay.classList.contains('show')) {
+        return;
+      }
+      if (e.key >= '0' && e.key <= '9') {
+        keyBuffer = (keyBuffer + e.key).slice(-2);
+        setQty(Number(keyBuffer) || 1);
+        clearTimeout(keyTimer);
+        keyTimer = setTimeout(function () { keyBuffer = ''; }, 900);
+      } else if (e.key === '+' || e.key === '=') {
+        setQty(state.qty + 1);
+      } else if (e.key === '-' || e.key === '_') {
+        setQty(state.qty - 1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmSale();
+      } else if (e.key === 'Backspace') {
+        setQty(Math.floor(state.qty / 10) || 1);
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
