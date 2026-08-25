@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Control Semanal de Unidades</title>
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
+</head>
+
+<body>
+
+<div class="app-shell">
+
+<header class="topbar">
+
+  <div>
+
+    <p class="eyebrow">
+      Sistema de control
+    </p>
+
+    <h1>
+      Reporte semanal de unidades
+    </h1>
+
+  </div>
+
+</header>
+
+
+<main class="layout">
+
+
+<!-- =====================================================
+     FORMULARIO
+====================================================== -->
+
+<section class="panel form-panel">
+
+  <div class="panel-title">
+
+    <div>
+
+      <p class="eyebrow">
+        Registro diario
+      </p>
+
+      <h2>
+        Registrar producción
+      </h2>
+
+    </div>
+
+    <span class="chip">
+      Unidad
+    </span>
+
+  </div>
+
+
+<form id="reportForm">
+
+
+<div class="form-grid">
+
+
+<!-- UNIDAD -->
+
+<label class="field">
+
+  <span>
+    Número de unidad
+  </span>
+
+  <input
+    type="text"
+    id="numeroUnidad"
+    placeholder="Ej: 77"
+    inputmode="numeric"
+    required
+  >
+
+</label>
+
+
+<!-- FECHA -->
+
+<label class="field">
+
+  <span>
+    Fecha
+  </span>
+
+  <input
+    type="date"
+    id="fecha"
+    required
+  >
+
+</label>
+
+
+<!-- DÍA -->
+
+<label class="field">
+
+  <span>
+    Día de la semana
+  </span>
+
+  <input
+    type="text"
+    id="diaSemana"
+    readonly
+  >
+
+</label>
+
+
+<!-- RUTA -->
+
+<label class="field field-wide">
+
+  <span>
+    Ruta / Línea
+  </span>
+
+  <input
+    type="text"
+    id="ruta"
+    placeholder="Ej: Urb. Ciudad Verde"
+    required
+  >
+
+</label>
+
+
+</div>
+
+
+<!-- =====================================================
+     PRODUCCIÓN
+====================================================== -->
+
+<div
+  id="productionFields"
+  class="production-section"
+>
+
+  <div class="section-heading">
+
+    <div>
+
+      <p class="eyebrow">
+        Detalle de producción
+      </p>
+
+      <h3>
+        Ingresos y descuentos
+      </h3>
+
+    </div>
+
+    <span class="calculation-badge">
+      Cálculo automático
+    </span>
+
+  </div>
+
+
+<div class="form-grid">
+
+
+<!-- PRODUCCIÓN -->
+
+<label class="field">
+
+  <span>
+    Producción total ($)
+  </span>
+
+  <div class="money-input">
+
+    <span>$</span>
+
+    <input
+      type="number"
+      id="produccionTotal"
+      min="0"
+      step="0.01"
+      placeholder="0.00"
+      required
+    >
+
+  </div>
+
+</label>
+
+
+<!-- COMBUSTIBLE -->
+
+<label class="field">
+
+  <span>
+    Combustible ($)
+  </span>
+
+  <div class="money-input">
+
+    <span>$</span>
+
+    <input
+      type="number"
+      id="combustible"
+      min="0"
+      step="0.01"
+      placeholder="0.00"
+    >
+
+  </div>
+
+</label>
+
+
+<!-- GASTO ADICIONAL -->
+
+<label class="field field-wide">
+
+  <span>
+    ¿Tiene gasto adicional?
+  </span>
+
+  <select id="tieneGastoAdicional">
+
+    <option value="no">
+      No
+    </option>
+
+    <option value="si">
+      Sí
+    </option>
+
+  </select>
+
+</label>
+
+
+<div
+  id="gastoAdicionalFields"
+  class="field-wide hidden"
+>
+
+  <div class="form-grid">
+
+    <label class="field">
+
+      <span>
+        Concepto del gasto
+      </span>
+
+      <input
+        type="text"
+        id="conceptoGastoAdicional"
+        placeholder="Ej: Reparación"
+      >
+
+    </label>
+
+
+    <label class="field">
+
+      <span>
+        Gasto adicional ($)
+      </span>
+
+      <div class="money-input">
+
+        <span>$</span>
+
+        <input
+          type="number"
+          id="gastoAdicional"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+        >
+
+      </div>
+
+    </label>
+
+  </div>
+
+</div>
+
+
+<!-- DEPÓSITO -->
+
+<label class="field field-wide">
+
+  <span>
+    Depósito ($)
+  </span>
+
+  <div class="money-input deposit">
+
+    <span>$</span>
+
+    <input
+      type="text"
+      id="deposito"
+      value="0.00"
+      readonly
+    >
+
+  </div>
+
+</label>
+
+</div>
+
+
+<!-- RESUMEN -->
+
+<div class="calculation-box">
+
+  <div>
+
+    <span>
+      Producción
+    </span>
+
+    <strong id="resumenProduccion">
+      $0.00
+    </strong>
+
+  </div>
+
+  <div class="highlight">
+
+    <span>
+      Depósito
+    </span>
+
+    <strong id="resumenDeposito">
+      $0.00
+    </strong>
+
+  </div>
+
+</div>
+
+</div>
+
+
+<!-- BOTONES -->
+
+<div class="actions">
+
+  <button
+    type="submit"
+    class="btn btn-primary"
+  >
+    Guardar registro
+  </button>
+
+  <button
+    type="button"
+    class="btn btn-secondary"
+    id="resetFormBtn"
+  >
+    Limpiar
+  </button>
+
+</div>
+
+</form>
+
+</section>
+
+
+<!-- =====================================================
+     UNIDADES
+====================================================== -->
+
+<section class="panel">
+
+<div class="panel-title">
+
+  <div>
+
+    <p class="eyebrow">
+      Control
+    </p>
+
+    <h2>
+      Unidades registradas
+    </h2>
+
+  </div>
+
+  <span class="chip">
+    Semanal
+  </span>
+
+</div>
+
+
+<div
+  id="unitsList"
+  class="units-list"
+>
+
+  <div class="empty-state">
+    Aún no hay unidades registradas.
+  </div>
+
+</div>
+
+</section>
+
+
+<!-- =====================================================
+     REPORTE
+====================================================== -->
+
+<section class="panel preview-panel">
+
+<div class="preview-header">
+
+<div>
+
+  <p class="eyebrow">
+    Reporte semanal
+  </p>
+
+  <h2>
+
+    Unidad
+
+    <span id="previewNumeroUnidad">
+      -
+    </span>
+
+  </h2>
+
+</div>
+
+
+<div class="preview-meta">
+
+  <p>
+    Periodo
+  </p>
+
+  <span id="reportHeaderDate">
+    Sin registros
+  </span>
+
+</div>
+
+</div>
+
+
+<!-- RESUMEN -->
+
+<div class="weekly-summary">
+
+<div class="summary-card">
+
+  <span>
+    Producción total
+  </span>
+
+  <strong id="totalProduccionSemanal">
+    $0.00
+  </strong>
+
+</div>
+
+
+<div class="summary-card deposit-card">
+
+  <span>
+    Total depositado
+  </span>
+
+  <strong id="totalDepositoSemanal">
+    $0.00
+  </strong>
+
+</div>
+
+
+<div class="summary-card">
+
+  <span>
+    Días registrados
+  </span>
+
+  <strong id="diasRegistrados">
+    0 / 7
+  </strong>
+
+</div>
+
+</div>
+
+
+<!-- TABLA -->
+
+<div class="table-container">
+
+<table id="weeklyTable">
+
+<thead>
+
+<tr>
+
+<th>Día</th>
+<th>Fecha</th>
+<th>Ruta</th>
+<th>Producción</th>
+<th>Combustible</th>
+<th>Gasto adicional</th>
+<th>Depósito</th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="weeklyTableBody">
+
+<tr>
+
+<td
+  colspan="7"
+  class="empty-state"
+>
+
+  Selecciona una unidad
+  para visualizar su
+  reporte semanal.
+
+</td>
+
+</tr>
+
+</tbody>
+
+
+<tfoot>
+
+<tr>
+
+<td
+  colspan="3"
+  class="total-label"
+>
+  TOTAL SEMANAL
+</td>
+
+<td id="tableTotalProduccion">
+  $0.00
+</td>
+
+<td id="tableTotalCombustible">
+  $0.00
+</td>
+
+<td id="tableTotalGastoAdicional">
+  $0.00
+</td>
+
+<td id="tableTotalDeposito">
+  $0.00
+</td>
+
+</tr>
+
+</tfoot>
+
+</table>
+
+</div>
+
+
+<!-- BOTONES PDF -->
+
+<div class="pdf-options">
+
+<button
+  type="button"
+  class="btn btn-action"
+  id="downloadDetailedPdfBtn"
+>
+  📄 Reporte semanal
+</button>
+
+
+<button
+  type="button"
+  class="btn btn-action"
+  id="downloadSummaryPdfBtn"
+>
+  📋 Tabla resumida
+</button>
+
+
+<button
+  type="button"
+  class="btn btn-action"
+  id="printReportBtn"
+>
+  🖨 Imprimir
+</button>
+
+
+<button
+  type="button"
+  class="btn btn-outline"
+  id="newReportBtn"
+>
+  Nuevo registro
+</button>
+
+</div>
+
+</section>
+
+
+<!-- =====================================================
+     HISTORIAL
+====================================================== -->
+
+<section class="panel history-panel">
+
+<div class="history-header">
+
+<div>
+
+  <p class="eyebrow">
+    Registros
+  </p>
+
+  <h2>
+    Historial
+  </h2>
+
+</div>
+
+
+<input
+  type="search"
+  id="historySearch"
+  placeholder="Buscar unidad..."
+>
+
+</div>
+
+
+<div class="history-actions">
+
+  <button
+    type="button"
+    class="btn btn-outline btn-small"
+    id="btnDatosPrueba"
+  >
+    Insertar datos de prueba
+  </button>
+
+</div>
+
+
+<ul
+  id="historyList"
+  class="history-list"
+>
+
+<li class="empty-state">
+  Aún no hay registros.
+</li>
+
+</ul>
+
+</section>
+
+</main>
+
+</div>
+
+
+<!-- PDF -->
+
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"
+></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="script.js"></script>
+
+
+<!-- =====================================================
+     MODAL DE ÉXITO
+===================================================== -->
+
+<div
+  class="overlay"
+  id="exitoOverlay"
+>
+
+  <div
+    class="success-card"
+    role="alertdialog"
+    aria-live="polite"
+    aria-label="Registro guardado"
+  >
+
+    <div class="check">
+
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <path d="M8 17.5l6.5 6.5L26 10.5" style="stroke: var(--white);" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+    </div>
+
+
+    <h3>
+      Registro guardado
+    </h3>
+
+
+    <p
+      class="success-detail"
+      id="exitoDetalle"
+    >
+    </p>
+
+  </div>
+
+</div>
+
+</body>
+</html>
