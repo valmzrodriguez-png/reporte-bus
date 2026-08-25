@@ -80,13 +80,13 @@ textarea {
         100%;
 
     max-width:
-        1250px;
+        1400px;
 
     margin:
         auto;
 
     padding:
-        25px 20px 60px;
+        36px 40px 72px;
 
 }
 
@@ -142,7 +142,10 @@ textarea {
 
 
 /* =====================================================
-   LAYOUT
+   LAYOUT — DASHBOARD DE ESCRITORIO (desktop first)
+   Columna izquierda: formulario (380px)
+   Columna derecha: reporte semanal (resto)
+   Fila inferior: unidades + historial alineados
 ===================================================== */
 
 .layout {
@@ -150,8 +153,18 @@ textarea {
     display:
         grid;
 
+    grid-template-columns:
+        380px minmax(0, 1fr);
+
+    grid-template-areas:
+        "form    preview"
+        "units   history";
+
     gap:
-        22px;
+        26px;
+
+    align-items:
+        start;
 
 }
 
@@ -160,6 +173,38 @@ textarea {
 
     min-width:
         0;
+
+}
+
+
+.form-panel {
+
+    grid-area:
+        form;
+
+}
+
+
+.preview-panel {
+
+    grid-area:
+        preview;
+
+}
+
+
+.units-panel {
+
+    grid-area:
+        units;
+
+}
+
+
+.history-panel {
+
+    grid-area:
+        history;
 
 }
 
@@ -176,7 +221,7 @@ textarea {
         24px;
 
     padding:
-        30px;
+        30px 32px;
 
     box-shadow:
         var(--shadow);
@@ -210,7 +255,10 @@ textarea {
         5px 0 0;
 
     font-size:
-        23px;
+        25px;
+
+    letter-spacing:
+        -.02em;
 
 }
 
@@ -218,22 +266,37 @@ textarea {
 .chip {
 
     background:
-        var(--blue-light);
-
-    color:
         var(--blue);
 
+    color:
+        var(--white);
+
     padding:
-        8px 14px;
+        8px 16px;
 
     border-radius:
         999px;
 
     font-size:
-        12px;
+        11.5px;
 
     font-weight:
-        700;
+        800;
+
+    letter-spacing:
+        .08em;
+
+    text-transform:
+        uppercase;
+
+    box-shadow:
+        0 6px 14px -6px
+        rgba(
+            37,
+            99,
+            235,
+            .55
+        );
 
 }
 
@@ -312,10 +375,10 @@ textarea {
         12px;
 
     padding:
-        13px 14px;
+        14px 15px;
 
     font-size:
-        14px;
+        15px;
 
     color:
         var(--text);
@@ -515,13 +578,13 @@ textarea {
 .calculation-badge {
 
     background:
-        var(--blue-light);
+        var(--green);
 
     color:
-        var(--blue);
+        var(--white);
 
     padding:
-        7px 12px;
+        7px 14px;
 
     border-radius:
         999px;
@@ -530,7 +593,22 @@ textarea {
         11px;
 
     font-weight:
-        700;
+        800;
+
+    letter-spacing:
+        .06em;
+
+    text-transform:
+        uppercase;
+
+    box-shadow:
+        0 6px 14px -6px
+        rgba(
+            7,
+            136,
+            63,
+            .5
+        );
 
 }
 
@@ -743,13 +821,13 @@ textarea {
         13px;
 
     padding:
-        13px 20px;
+        14px 24px;
 
     cursor:
         pointer;
 
     font-size:
-        14px;
+        14.5px;
 
     font-weight:
         800;
@@ -777,12 +855,12 @@ textarea {
         white;
 
     box-shadow:
-        0 10px 22px
+        0 8px 18px -10px
         rgba(
             37,
             99,
             235,
-            .22
+            .65
         );
 
 }
@@ -796,6 +874,15 @@ textarea {
     color:
         var(--blue-dark);
 
+    box-shadow:
+        inset 0 0 0 1px
+        rgba(
+            37,
+            99,
+            235,
+            .16
+        );
+
 }
 
 
@@ -806,6 +893,15 @@ textarea {
 
     color:
         white;
+
+    box-shadow:
+        0 8px 18px -10px
+        rgba(
+            23,
+            32,
+            51,
+            .6
+        );
 
 }
 
@@ -820,6 +916,15 @@ textarea {
 
     border:
         1px solid var(--blue);
+
+    box-shadow:
+        0 8px 18px -12px
+        rgba(
+            37,
+            99,
+            235,
+            .45
+        );
 
 }
 
@@ -974,7 +1079,10 @@ button.unit-card {
         5px 0 0;
 
     font-size:
-        25px;
+        28px;
+
+    letter-spacing:
+        -.02em;
 
 }
 
@@ -984,13 +1092,25 @@ button.unit-card {
     text-align:
         right;
 
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        flex-end;
+
+    gap:
+        6px;
+
 }
 
 
 .preview-meta p {
 
     margin:
-        0 0 5px;
+        0;
 
     font-weight:
         800;
@@ -998,16 +1118,52 @@ button.unit-card {
     color:
         var(--muted);
 
+    font-size:
+        11px;
+
+    letter-spacing:
+        .1em;
+
+    text-transform:
+        uppercase;
+
 }
 
 
 .preview-meta span {
 
+    display:
+        inline-block;
+
+    background:
+        var(--text);
+
     color:
-        var(--muted);
+        var(--white);
+
+    padding:
+        8px 16px;
+
+    border-radius:
+        999px;
 
     font-size:
-        14px;
+        13px;
+
+    font-weight:
+        700;
+
+    font-variant-numeric:
+        tabular-nums;
+
+    box-shadow:
+        0 8px 18px -10px
+        rgba(
+            23,
+            32,
+            51,
+            .6
+        );
 
 }
 
@@ -1028,10 +1184,10 @@ button.unit-card {
         );
 
     gap:
-        14px;
+        16px;
 
     margin:
-        25px 0;
+        26px 0;
 
 }
 
@@ -1039,7 +1195,7 @@ button.unit-card {
 .summary-card {
 
     padding:
-        20px;
+        22px 24px;
 
     border:
         1px solid var(--border);
@@ -1079,7 +1235,10 @@ button.unit-card {
         #1745b5;
 
     font-size:
-        24px;
+        27px;
+
+    letter-spacing:
+        -.02em;
 
 }
 
@@ -1104,7 +1263,7 @@ button.unit-card {
 
 
 /* =====================================================
-   TABLA
+    TABLA
 ===================================================== */
 
 .table-container {
@@ -1119,7 +1278,7 @@ button.unit-card {
         1px solid var(--border);
 
     border-radius:
-        15px;
+        12px;
 
 }
 
@@ -1130,7 +1289,7 @@ table {
         100%;
 
     min-width:
-        1150px;
+        780px;
 
     border-collapse:
         collapse;
@@ -1142,7 +1301,7 @@ th,
 td {
 
     padding:
-        12px 10px;
+        13px 14px;
 
     border-bottom:
         1px solid var(--border);
@@ -1151,7 +1310,7 @@ td {
         left;
 
     font-size:
-        12px;
+        13px;
 
 }
 
@@ -1409,7 +1568,7 @@ tfoot td {
 .history-header input {
 
     max-width:
-        250px;
+        360px;
 
 }
 
@@ -1486,8 +1645,67 @@ tfoot td {
 
 
 /* =====================================================
-   RESPONSIVE
+    RESPONSIVE (degradación desde el diseño de escritorio)
 ===================================================== */
+
+@media (
+    max-width: 1280px
+) {
+
+    .app-shell {
+
+        padding:
+            30px 28px 60px;
+
+    }
+
+
+    .layout {
+
+        grid-template-columns:
+            340px minmax(0, 1fr);
+
+        gap:
+            22px;
+
+    }
+
+}
+
+
+@media (
+    max-width: 1023px
+) {
+
+    .app-shell {
+
+        max-width:
+            880px;
+
+        padding:
+            24px 20px 56px;
+
+    }
+
+
+    .layout {
+
+        grid-template-columns:
+            minmax(0, 1fr);
+
+        grid-template-areas:
+            "form"
+            "preview"
+            "units"
+            "history";
+
+        gap:
+            22px;
+
+    }
+
+}
+
 
 @media (
     max-width: 750px
@@ -1606,6 +1824,9 @@ tfoot td {
 
         text-align:
             left;
+
+        align-items:
+            flex-start;
 
     }
 
@@ -1758,22 +1979,6 @@ tfoot td {
 
         font-size:
             16px;
-
-    }
-
-
-    .history-actions {
-
-        justify-content:
-            stretch;
-
-    }
-
-
-    .history-actions .btn {
-
-        width:
-            100%;
 
     }
 
@@ -2208,7 +2413,7 @@ tfoot td {
         auto;
 
     border-radius:
-        14px;
+        12px;
 
     scrollbar-width:
         thin;
@@ -2328,6 +2533,26 @@ tfoot td {
 }
 
 
+/* La columna Ruta se trunca con elipsis para que la
+    tabla nunca desborde el panel del reporte */
+
+#weeklyTable td:nth-child(3) {
+
+    max-width:
+        220px;
+
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+}
+
+
 tbody td {
 
     transition:
@@ -2352,12 +2577,27 @@ tbody tr:hover td:first-child {
 }
 
 
-/* --- Estados vacíos --- */
+/* --- Estados vacíos: ícono sutil + tipografía cuidada --- */
 
 .empty-state {
 
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        14px;
+
     padding:
-        36px 24px;
+        44px 28px;
 
     border:
         1.5px dashed var(--border);
@@ -2366,10 +2606,130 @@ tbody tr:hover td:first-child {
         14px;
 
     background:
-        #fbfdff;
+        linear-gradient(
+            180deg,
+            #fbfdff,
+            #f5f8ff
+        );
+
+    color:
+        var(--muted);
 
     font-size:
         13.5px;
+
+    font-weight:
+        600;
+
+    line-height:
+        1.55;
+
+    letter-spacing:
+        .01em;
+
+}
+
+
+/* Ícono genérico dibujado por máscara SVG */
+
+.empty-state::before {
+
+    content:
+        "";
+
+    width:
+        48px;
+
+    height:
+        48px;
+
+    flex:
+        none;
+
+    background-color:
+        #b9c8de;
+
+    transition:
+        background-color .2s ease;
+
+    -webkit-mask-position:
+        center;
+
+    mask-position:
+        center;
+
+    -webkit-mask-repeat:
+        no-repeat;
+
+    mask-repeat:
+        no-repeat;
+
+    -webkit-mask-size:
+        contain;
+
+    mask-size:
+        contain;
+
+}
+
+
+.empty-state:hover::before {
+
+    background-color:
+        var(--blue);
+
+}
+
+
+/* Reporte semanal: bandeja de entrada */
+
+#weeklyTableBody td.empty-state {
+
+    display:
+        table-cell;
+
+}
+
+
+#weeklyTableBody .empty-state::before {
+
+    display:
+        block;
+
+    margin:
+        0 auto;
+
+    -webkit-mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+
+    mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+
+}
+
+
+/* Historial: reloj */
+
+#historyList .empty-state::before {
+
+    -webkit-mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15.5 13.5'/%3E%3C/svg%3E");
+
+    mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15.5 13.5'/%3E%3C/svg%3E");
+
+}
+
+
+/* Unidades registradas: autobús */
+
+#unitsList .empty-state::before {
+
+    -webkit-mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='13.5' rx='2.5'/%3E%3Cpath d='M4 9h16'/%3E%3Cpath d='M8 20.5h.01M16 20.5h.01'/%3E%3Cpath d='M6.5 16.5v2.2M17.5 16.5v2.2'/%3E%3C/svg%3E");
+
+    mask-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='13.5' rx='2.5'/%3E%3Cpath d='M4 9h16'/%3E%3Cpath d='M8 20.5h.01M16 20.5h.01'/%3E%3Cpath d='M6.5 16.5v2.2M17.5 16.5v2.2'/%3E%3C/svg%3E");
 
 }
 
@@ -2621,263 +2981,6 @@ tbody tr:hover td:first-child {
 
         transform:
             none;
-
-    }
-
-}
-
-
-/* =====================================================
-   LAYOUT DASHBOARD (ESCRITORIO ≥1024PX)
-===================================================== */
-
-@media (
-    min-width: 1024px
-) {
-
-    .app-shell {
-
-        max-width:
-            1400px;
-
-        padding:
-            36px 40px 72px;
-
-    }
-
-
-    .layout {
-
-        grid-template-columns:
-            minmax(0, 24rem) minmax(0, 1fr);
-
-        gap:
-            28px;
-
-        align-items:
-            start;
-
-    }
-
-
-    .form-panel {
-
-        grid-area:
-            1 / 1;
-
-    }
-
-
-    .units-panel {
-
-        grid-area:
-            2 / 1;
-
-    }
-
-
-    .preview-panel {
-
-        grid-area:
-            1 / 2;
-
-    }
-
-
-    .history-panel {
-
-        grid-area:
-            2 / 2;
-
-    }
-
-
-    .panel {
-
-        padding:
-            30px 32px;
-
-    }
-
-
-    .panel-title h2 {
-
-        font-size:
-            26px;
-
-        letter-spacing:
-            -.02em;
-
-    }
-
-
-    .field > span {
-
-        font-size:
-            13.5px;
-
-    }
-
-
-    input,
-    select,
-    textarea {
-
-        padding:
-            14px 15px;
-
-        font-size:
-            15px;
-
-    }
-
-
-    .btn {
-
-        padding:
-            14px 24px;
-
-        font-size:
-            14.5px;
-
-    }
-
-
-    .calculation-box {
-
-        padding:
-            18px;
-
-        gap:
-            14px;
-
-    }
-
-
-    .calculation-box strong {
-
-        font-size:
-            24px;
-
-    }
-
-
-    .weekly-summary {
-
-        gap:
-            18px;
-
-        margin:
-            28px 0;
-
-    }
-
-
-    .summary-card {
-
-        padding:
-            24px 26px;
-
-    }
-
-
-    .summary-card strong {
-
-        margin-top:
-            8px;
-
-        font-size:
-            30px;
-
-        letter-spacing:
-            -.03em;
-
-    }
-
-
-    .preview-header h2 {
-
-        font-size:
-            30px;
-
-    }
-
-
-    table {
-
-        min-width:
-            860px;
-
-    }
-
-
-    th,
-    td {
-
-        padding:
-            14px 14px;
-
-        font-size:
-            13px;
-
-    }
-
-
-    .units-list {
-
-        gap:
-            16px;
-
-    }
-
-
-    .history-list {
-
-        margin-top:
-            22px;
-
-        gap:
-            12px;
-
-    }
-
-
-    .history-header input {
-
-        max-width:
-            360px;
-
-    }
-
-
-    .actions,
-    .pdf-options {
-
-        gap:
-            14px;
-
-    }
-
-
-    .pdf-options {
-
-        margin-top:
-            28px;
-
-    }
-
-}
-
-
-/* Tablet ancho: centrar sin estirar en exceso */
-@media (
-    min-width: 751px
-) and (max-width: 1023px) {
-
-    .app-shell {
-
-        max-width:
-            880px;
 
     }
 
