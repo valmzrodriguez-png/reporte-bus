@@ -167,10 +167,63 @@ async function obtenerRegistros() {
     }
 }
 
-async function insertarRegistro(payload) {
-    if (!clienteListo()) {
-        return { data: null, error: { message: "Supabase no está disponible." } };
+/* =====================================================
+   ESQUEMA BASE (retrocompatibilidad)
+   Si la tabla remota aún no tiene las columnas nuevas,
+   el guardado reintenta solo con estas columnas (que ya
+   existen) y agrupa los desgloses en «concepto_gastos».
+   ===================================================== */
+
+const COLUMNAS_BASE = [
+    "unidad",
+    "ruta",
+    "fecha",
+    "produccion_bruta",
+    "combustible",
+    "gastos_adicionales",
+    "concepto_gastos",
+    "deposito",
+];
+
+function esErrorColumnaFaltante(error) {
+    return !!error && /could not find the/i.test(error.message || "");
+}
+
+/* Reduce el payload a las columnas existentes; los valores
+   nuevos se documentan como texto en «concepto_gastos» para
+   no perder información. El Depósito ya viene calculado con
+   todos los descuentos, así que ningún monto se pierde. */
+function reducirPayloadAlEsquemaBase(payload) {
+    const notas = [];
+
+    if (payload.estado_dia && payload.estado_dia !== "produccion") {
+        notas.push(`Estado: ${payload.estado_dia}`);
     }
+    if (num(payload.administracion)) {
+        notas.push(`Administración ${fmtMoneda(payload.administracion)}`);
+    }
+    if (num(payload.alimentacion_limpieza)) {
+        notas.push(`Alimentación+limpieza ${fmtMoneda(payload.alimentacion_limpieza)}`);
+    }
+    if (num(payload.conductor_monto)) {
+        notas.push(`Conductor ${num(payload.conductor_porcentaje)}% (${fmtMoneda(payload.conductor_monto)})`);
+    }
+
+    const reducido = {};
+    COLUMNAS_BASE.forEach((col) => {
+        if (payload[col] !== undefined) reducido[col] = payload[col];
+    });
+
+    if (notas.length) {
+        reducido.concepto_gastos = [reducido.concepto_gastos, notas.join(" · ")]
+            .filter(Boolean)
+            .join(" | ");
+    }
+
+    return reducido;
+}
+
+async function insertarEnSupabase(payload) {
     try {
         const { data, error } = await supabaseClient
             .from(TABLA_REGISTROS)
@@ -180,6 +233,24 @@ async function insertarRegistro(payload) {
     } catch (error) {
         return { data: null, error };
     }
+}
+
+async function insertarRegistro(payload) {
+    if (!clienteListo()) {
+        return { data: null, error: { message: "Supabase no está disponible." } };
+    }
+
+    /* 1) Intento normal con el esquema completo */
+    let resultado = await insertarEnSupabase(payload);
+
+    /* 2) Tabla sin migrar: reintento retrocompatible */
+    if (resultado.error && esErrorColumnaFaltante(resultado.error)) {
+        console.warn("[Supabase] La tabla no tiene las columnas nuevas; reintentando en modo compatible.");
+        resultado = await insertarEnSupabase(reducirPayloadAlEsquemaBase(payload));
+        resultado.esquemaBase = !resultado.error;
+    }
+
+    return resultado;
 }
 
 async function eliminarRegistro(registroId) {
@@ -503,7 +574,8 @@ form.addEventListener("submit", async (e) => {
     btnGuardar.disabled = true;
     btnGuardar.textContent = "Guardando…";
 
-    const { error } = await insertarRegistro(payload);
+    const resultado = await insertarRegistro(payload);
+    const error = resultado.error;
 
     guardando = false;
     btnGuardar.disabled = false;
@@ -520,7 +592,25 @@ form.addEventListener("submit", async (e) => {
     await refrescarInterfaz();
 
     mostrarModalExito(payload.unidad, payload.deposito);
+
+    if (resultado.esquemaBase) avisarModoCompatibleUnaVez();
 });
+
+/* Aviso único por sesión cuando el registro se guardó sin
+   las columnas migradas */
+let avisoModoCompatibleMostrado = false;
+
+function avisarModoCompatibleUnaVez() {
+    if (avisoModoCompatibleMostrado) return;
+    avisoModoCompatibleMostrado = true;
+
+    setTimeout(() => {
+        mostrarModalAviso(
+            "Guardado en modo compatible",
+            "El registro se guardó correctamente, pero la tabla todavía no tiene las columnas nuevas (estado del día, administración, alimentación, conductor).\n\nLos desgloses quedaron anotados dentro de «concepto_gastos». Ejecuta el SQL de migración para almacenarlos en columnas propias."
+        );
+    }, 2400);
+}
 
 on("resetFormBtn", "click", () => reiniciarFormulario(true));
 
