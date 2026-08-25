@@ -81,13 +81,6 @@ function hoyISO() {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function fechaRelativaISO(diasOffset) {
-    const d = new Date();
-    d.setDate(d.getDate() + diasOffset);
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
 function ahoraTexto() {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
@@ -548,7 +541,7 @@ on("historyList", "click", async (e) => {
    automáticamente la primera unidad disponible. */
 function asegurarUnidadParaReporte() {
     if (!registros.length) {
-        alert("Aún no hay registros para mostrar.\n\nGuarda un registro desde el formulario o usa el botón «Insertar datos de prueba».");
+        alert("Aún no hay registros para mostrar.\n\nGuarda un registro desde el formulario.");
         return false;
     }
 
@@ -578,72 +571,45 @@ async function ejecutarAccionReporte(descripcion, accion) {
 }
 
 /* =====================================================
-   DATOS DE PRUEBA
-===================================================== */
+   DATOS DE PRUEBA — DESHABILITADO
+   La siembra de registros ficticios fue eliminada para
+   que la app arranque siempre con datos reales.
+   ===================================================== */
 
-async function insertarRegistrosDePrueba(silencioso = false) {
+/* =====================================================
+   LIMPIEZA DE TABLA (temporal)
+   Ejecutar desde la consola del navegador:
+       await limpiarTablaRegistros();
+   ===================================================== */
+
+async function limpiarTablaRegistros() {
     if (!clienteListo()) {
-        if (!silencioso) alert("La conexión con Supabase no está disponible.");
+        alert("La conexión con Supabase no está disponible.");
         return false;
     }
 
-    const filasPrueba = [
-        {
-            unidad: "01",
-            ruta: "Urb. Ciudad Verde",
-            fecha: fechaRelativaISO(-6),
-            produccion_bruta: 1250.00,
-            combustible: 300.00,
-            gastos_adicionales: 50.00,
-            concepto_gastos: "Lavada y engrasado",
-            deposito: 900.00,
-        },
-        {
-            unidad: "01",
-            ruta: "Urb. Ciudad Verde",
-            fecha: fechaRelativaISO(-5),
-            produccion_bruta: 1180.50,
-            combustible: 280.00,
-            gastos_adicionales: 0,
-            concepto_gastos: null,
-            deposito: 900.50,
-        },
-        {
-            unidad: "02",
-            ruta: "Centro – Terminal",
-            fecha: fechaRelativaISO(-5),
-            produccion_bruta: 1420.75,
-            combustible: 350.25,
-            gastos_adicionales: 75.00,
-            concepto_gastos: "Reparación de puerta",
-            deposito: 995.50,
-        },
-    ];
+    if (!confirm("¿Borrar TODOS los registros de la tabla registros_semanales? Esta acción no se puede deshacer.")) {
+        return false;
+    }
 
-    const { data, error } = await supabaseClient
+    const { error, count } = await supabaseClient
         .from(TABLA_REGISTROS)
-        .insert(filasPrueba)
+        .delete()
+        .neq("id", 0)
         .select();
 
     if (error) {
-        console.error("Error al insertar datos de prueba:", error);
-        if (!silencioso) alert("Error al insertar los datos de prueba: " + error.message);
+        console.error("Error al limpiar la tabla:", error);
+        alert("Error al limpiar la tabla: " + error.message);
         return false;
     }
 
-    registros = await obtenerRegistros();
-    renderTodo();
-
-    if (!silencioso) {
-        alert(`Se insertaron ${data.length} registros de prueba correctamente.`);
-    }
+    console.log(`[limpieza] Registros eliminados: ${count ?? "(sin conteo)"}`);
+    await refrescarInterfaz();
     return true;
 }
 
-/* Disponible también desde la consola del navegador */
-window.insertarRegistrosDePrueba = insertarRegistrosDePrueba;
-
-on("btnDatosPrueba", "click", () => insertarRegistrosDePrueba(false));
+window.limpiarTablaRegistros = limpiarTablaRegistros;
 
 /* =====================================================
    EXPORTACIÓN PDF (jsPDF)
@@ -1013,26 +979,17 @@ async function inicializarApp() {
         console.log("[init] Consultando registros en Supabase…");
         await sincronizarConSupabase();
         console.log(`[init] Registros recibidos: ${registros.length}`);
-
-        /* 2) Si la tabla está vacía, siembra datos de prueba */
-        if (clienteListo() && !registros.length) {
-            const ok = await insertarRegistrosDePrueba(true);
-            if (ok) {
-                await sincronizarConSupabase();
-                console.log(`[init] Tras sembrar datos: ${registros.length} registros`);
-            }
-        }
     } catch (error) {
         console.error("Error al inicializar los datos desde Supabase:", error);
     }
 
-    /* 3) Auto-selecciona la primera unidad disponible */
+    /* 2) Auto-selecciona la primera unidad disponible */
     if (registros.length && !unidadSeleccionada) {
         unidadSeleccionada = unidadesRegistradas()
             .sort((a, b) => num(a) - num(b))[0];
     }
 
-    /* 4) AHORA sí: pinta métricas, tabla e historial */
+    /* 3) AHORA sí: pinta métricas, tabla e historial */
     renderTodo();
 
     console.log(`[init] Interfaz lista. Unidad mostrada: ${unidadSeleccionada ?? "ninguna"}`);
