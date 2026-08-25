@@ -1,7 +1,7 @@
 "use strict";
 
 /* Marcador para confirmar en consola qué versión ejecuta el navegador */
-console.log("%c[script.js] v3 — carga desde Supabase + barra de reportes activa", "color:#2563eb;font-weight:bold;");
+console.log("%c[script.js] v4 — gastos múltiples dinámicos + borrar unidad", "color:#2563eb;font-weight:bold;");
 
 /* Ningún error puede quedar invisible */
 window.addEventListener("error", (e) => {
@@ -192,6 +192,23 @@ async function eliminarRegistro(registroId) {
     }
 }
 
+/* Elimina TODOS los registros semanales que pertenecen a una unidad:
+   DELETE FROM registros_semanales WHERE unidad = <numeroUnidad> */
+async function eliminarRegistrosDeUnidad(numeroUnidad) {
+    if (!clienteListo()) {
+        return { message: "Supabase no está disponible." };
+    }
+    try {
+        const { error } = await supabaseClient
+            .from(TABLA_REGISTROS)
+            .delete()
+            .eq("unidad", numeroUnidad);
+        return error;
+    } catch (error) {
+        return error;
+    }
+}
+
 /* Trae siempre los datos más recientes desde Supabase */
 async function sincronizarConSupabase() {
     if (clienteListo()) {
@@ -251,12 +268,70 @@ const fechaInput = $id("fecha");
 const diaSemanaInput = $id("diaSemana");
 const tieneGastoSelect = $id("tieneGastoAdicional");
 
+/* =====================================================
+   GASTOS ADICIONALES DINÁMICOS (filas múltiples)
+   ===================================================== */
+
+function crearFilaGastoHTML() {
+    return `
+        <div class="gasto-fila">
+            <label class="field">
+                <span>Monto ($)</span>
+                <div class="money-input">
+                    <span>$</span>
+                    <input type="number" class="gasto-monto" min="0" step="0.01" placeholder="0.00">
+                </div>
+            </label>
+            <label class="field">
+                <span>Concepto</span>
+                <input type="text" class="gasto-concepto" placeholder="Ej: Llanta, aceite, multa…" maxlength="80">
+            </label>
+            <button type="button" class="btn-remove-gasto" title="Quitar este gasto" aria-label="Quitar este gasto">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>`;
+}
+
+function agregarFilaGasto(enfocar = false) {
+    const lista = $id("gastosLista");
+    lista.insertAdjacentHTML("beforeend", crearFilaGastoHTML());
+    if (enfocar) {
+        const montos = lista.querySelectorAll(".gasto-monto");
+        montos[montos.length - 1]?.focus();
+    }
+}
+
+/* Garantiza al menos una fila mientras el gasto está activo */
+function asegurarFilaGasto() {
+    if (!$id("gastosLista").children.length) agregarFilaGasto();
+}
+
+/* Vuelve al estado inicial: una sola fila vacía */
+function limpiarFilasGasto() {
+    $id("gastosLista").innerHTML = "";
+    agregarFilaGasto();
+}
+
+/* Lee todas las filas visibles: [{ monto, concepto }] */
+function leerGastosFormulario() {
+    if (tieneGastoSelect.value !== "si") return [];
+    return [...$id("gastosLista").querySelectorAll(".gasto-fila")]
+        .map((fila) => ({
+            monto: num(fila.querySelector(".gasto-monto")?.value),
+            concepto: fila.querySelector(".gasto-concepto")?.value.trim() || "",
+        }))
+        .filter((g) => g.monto > 0 || g.concepto !== "");
+}
+
 function actualizarCamposGasto() {
     const activo = tieneGastoSelect.value === "si";
     $id("gastoAdicionalFields").classList.toggle("hidden", !activo);
-    if (!activo) {
-        $id("conceptoGastoAdicional").value = "";
-        $id("gastoAdicional").value = "";
+    if (activo) {
+        asegurarFilaGasto();
+    } else {
+        limpiarFilasGasto();
     }
     calcularEnVivo();
 }
@@ -264,9 +339,10 @@ function actualizarCamposGasto() {
 function calcularEnVivo() {
     const produccion = num($id("produccionTotal").value);
     const combustible = num($id("combustible").value);
-    const gasto = tieneGastoSelect.value === "si" ? num($id("gastoAdicional").value) : 0;
 
-    const deposito = produccion - combustible - gasto;
+    /* Depósito = Producción − Combustible − Suma total de gastos */
+    const sumaGastos = leerGastosFormulario().reduce((s, g) => s + g.monto, 0);
+    const deposito = produccion - combustible - sumaGastos;
 
     $id("deposito").value = nf.format(deposito);
     $id("resumenProduccion").textContent = fmtMoneda(produccion);
@@ -279,7 +355,29 @@ fechaInput.addEventListener("change", () => {
 
 tieneGastoSelect.addEventListener("change", actualizarCamposGasto);
 
-["produccionTotal", "combustible", "gastoAdicional"].forEach((idCampo) => {
+on("addGastoBtn", "click", () => agregarFilaGasto(true));
+
+/* Delegación: los inputs de las filas se crean dinámicamente */
+$id("gastosLista").addEventListener("input", calcularEnVivo);
+
+$id("gastosLista").addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-remove-gasto");
+    if (!btn) return;
+
+    const fila = btn.closest(".gasto-fila");
+    const lista = $id("gastosLista");
+
+    if (lista.children.length > 1) {
+        fila.remove();
+    } else {
+        /* Última fila: solo se limpia, nunca desaparece */
+        fila.querySelector(".gasto-monto").value = "";
+        fila.querySelector(".gasto-concepto").value = "";
+    }
+    calcularEnVivo();
+});
+
+["produccionTotal", "combustible"].forEach((idCampo) => {
     $id(idCampo).addEventListener("input", calcularEnVivo);
 });
 
@@ -296,8 +394,20 @@ form.addEventListener("submit", async (e) => {
 
     const produccion = num($id("produccionTotal").value);
     const combustible = num($id("combustible").value);
-    const gasto = tieneGastoSelect.value === "si" ? num($id("gastoAdicional").value) : 0;
-    const deposito = produccion - combustible - gasto;
+
+    /* Suma total de todos los gastos adicionales ingresados */
+    const gastos = leerGastosFormulario();
+    const gastoTotal = gastos.reduce((s, g) => s + g.monto, 0);
+    const deposito = produccion - combustible - gastoTotal;
+
+    /* Concatena los conceptos: "Llanta ($10.00), Aceite ($15.00)" */
+    const conceptoGastos =
+        tieneGastoSelect.value === "si" && gastoTotal > 0
+            ? gastos
+                  .filter((g) => g.monto > 0)
+                  .map((g) => `${g.concepto || "Gasto adicional"} (${fmtMoneda(g.monto)})`)
+                  .join(", ") || "Gasto adicional"
+            : null;
 
     const payload = {
         unidad: $id("numeroUnidad").value.trim(),
@@ -305,11 +415,8 @@ form.addEventListener("submit", async (e) => {
         fecha: fechaInput.value,
         produccion_bruta: produccion,
         combustible: combustible,
-        gastos_adicionales: gasto,
-        concepto_gastos:
-            gasto > 0
-                ? $id("conceptoGastoAdicional").value.trim() || "Gasto adicional"
-                : null,
+        gastos_adicionales: gastoTotal,
+        concepto_gastos: conceptoGastos,
         deposito: deposito,
     };
 
@@ -402,7 +509,74 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
         cerrarModalExito();
         cerrarModalAviso();
+        cerrarModalConfirmar();
     }
+});
+
+/* =====================================================
+   MODAL DE CONFIRMACIÓN (borrar unidad)
+   ===================================================== */
+
+let unidadPendienteBorrar = null;
+
+function pedirConfirmacionBorrarUnidad(unidad) {
+    unidadPendienteBorrar = unidad;
+    $id("confirmTitulo").textContent = `Eliminar Unidad ${unidad}`;
+    $id("confirmMensaje").textContent =
+        `¿Estás seguro de eliminar la Unidad ${unidad} y todos sus registros semanales?\n\nEsta acción no se puede deshacer.`;
+    $id("confirmOverlay").classList.add("show");
+}
+
+function cerrarModalConfirmar() {
+    unidadPendienteBorrar = null;
+    $id("confirmOverlay").classList.remove("show");
+}
+
+async function eliminarUnidadCompleta(unidad) {
+    cerrarModalConfirmar();
+    if (!unidad) return;
+
+    if (!clienteListo()) {
+        mostrarModalAviso("Sin conexión", "La conexión con Supabase no está disponible.");
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from(TABLA_REGISTROS)
+            .delete()
+            .eq("unidad", unidad);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error("Error al eliminar la unidad en Supabase:", error);
+        mostrarModalAviso(
+            "Error al eliminar",
+            `No se pudieron eliminar los registros de la Unidad ${unidad}: ${error?.message || error}`
+        );
+        return;
+    }
+
+    /* Limpia la vista si la unidad eliminada estaba seleccionada */
+    if (unidadSeleccionada === unidad) {
+        unidadSeleccionada = null;
+    }
+
+    /* Recarga desde Supabase, actualiza unidades e historial
+       y recalcula el reporte semanal */
+    await refrescarInterfaz();
+
+    mostrarModalAviso("Unidad eliminada", `La Unidad ${unidad} y todos sus registros semanales fueron eliminados correctamente.`);
+}
+
+on("cancelDeleteBtn", "click", cerrarModalConfirmar);
+
+on("confirmDeleteBtn", "click", () => {
+    eliminarUnidadCompleta(unidadPendienteBorrar);
+});
+
+on("confirmOverlay", "click", (e) => {
+    if (e.target === e.currentTarget) cerrarModalConfirmar();
 });
 
 /* =====================================================
@@ -430,16 +604,32 @@ function renderUnidades() {
             const t = totalesUnidad(u);
             const activa = u === unidadSeleccionada ? " activa" : "";
             return `
-                <button type="button" class="unit-card${activa}" data-unidad="${esc(u)}">
-                    <strong>Unidad ${esc(u)}</strong>
-                    <span>${t.dias} día(s) · Producción ${fmtMoneda(t.produccion)}</span>
-                    <span>Depósito ${fmtMoneda(t.deposito)}</span>
-                </button>`;
+                <div class="unit-item">
+                    <button type="button" class="unit-card${activa}" data-unidad="${esc(u)}">
+                        <strong>Unidad ${esc(u)}</strong>
+                        <span>${t.dias} día(s) · Producción ${fmtMoneda(t.produccion)}</span>
+                        <span>Depósito ${fmtMoneda(t.deposito)}</span>
+                    </button>
+                    <button type="button" class="btn-delete-unit" data-unidad="${esc(u)}" title="Borrar Unidad ${esc(u)}" aria-label="Borrar Unidad ${esc(u)}">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                    </button>
+                </div>`;
         })
         .join("");
 }
 
 on("unitsList", "click", (e) => {
+    const btnBorrar = e.target.closest(".btn-delete-unit");
+    if (btnBorrar) {
+        pedirConfirmacionBorrarUnidad(btnBorrar.dataset.unidad);
+        return;
+    }
+
     const card = e.target.closest(".unit-card");
     if (!card) return;
     unidadSeleccionada = card.dataset.unidad;

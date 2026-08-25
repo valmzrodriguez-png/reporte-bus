@@ -3010,3 +3010,360 @@ tbody tr:hover td:first-child {
     }
 
 }
+
+
+/* =====================================================
+   GASTOS ADICIONALES DINÁMICOS
+===================================================== */
+
+.gastos-lista {
+
+    display:
+        grid;
+
+    gap:
+        12px;
+
+}
+
+
+.gasto-fila {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
+
+    gap:
+        12px;
+
+    align-items:
+        end;
+
+    padding:
+        12px 14px 14px 12px;
+
+    border:
+        1.5px dashed var(--border);
+
+    border-radius:
+        14px;
+
+    background:
+        white;
+
+}
+
+
+.gasto-fila .field > span {
+
+    font-size:
+        12px;
+
+}
+
+
+.btn-remove-gasto {
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        44px;
+
+    height:
+        50px;
+
+    border:
+        0;
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        #fee2e2;
+
+    color:
+        #b91c1c;
+
+    cursor:
+        pointer;
+
+    transition:
+        background-color .15s ease,
+        transform .15s ease;
+
+}
+
+
+.btn-remove-gasto:hover {
+
+    background:
+        #fecaca;
+
+    transform:
+        translateY(-1px);
+
+}
+
+
+.btn-add-gasto {
+
+    margin-top:
+        12px;
+
+    width:
+        100%;
+
+    padding:
+        12px 16px;
+
+    border:
+        1.5px dashed var(--blue);
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        transparent;
+
+    color:
+        var(--blue);
+
+    font-size:
+        13.5px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        .02em;
+
+    cursor:
+        pointer;
+
+    transition:
+        background-color .15s ease,
+        box-shadow .15s ease;
+
+}
+
+
+.btn-add-gasto:hover {
+
+    background:
+        var(--blue-light);
+
+    box-shadow:
+        inset 0 0 0 1px rgba(37, 99, 235, .25);
+
+}
+
+
+/* =====================================================
+   BORRAR UNIDAD (panel Unidades registradas)
+===================================================== */
+
+.unit-item {
+
+    display:
+        flex;
+
+    gap:
+        8px;
+
+    min-width:
+        0;
+
+}
+
+
+.unit-item .unit-card {
+
+    flex:
+        1;
+
+    min-width:
+        0;
+
+}
+
+
+.btn-delete-unit {
+
+    flex:
+        none;
+
+    align-self:
+        stretch;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        46px;
+
+    appearance:
+        none;
+
+    font:
+        inherit;
+
+    border:
+        1px solid #fecaca;
+
+    border-radius:
+        14px;
+
+    background:
+        #fff5f5;
+
+    color:
+        #b91c1c;
+
+    cursor:
+        pointer;
+
+    transition:
+        background-color .15s ease,
+        transform .15s ease,
+        box-shadow .15s ease;
+
+}
+
+
+.btn-delete-unit:hover {
+
+    background:
+        #fee2e2;
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 10px 20px -12px rgba(220, 38, 38, .5);
+
+}
+
+
+.btn-danger {
+
+    background:
+        #dc2626;
+
+    color:
+        white;
+
+    box-shadow:
+        0 8px 18px -10px rgba(220, 38, 38, .65);
+
+}
+
+
+.btn-danger:hover {
+
+    background:
+        #b91c1c;
+
+    box-shadow:
+        0 14px 28px -12px rgba(220, 38, 38, .55);
+
+}
+
+
+.aviso-icono.peligro {
+
+    background:
+        #dc2626;
+
+}
+
+
+.confirm-actions {
+
+    display:
+        flex;
+
+    flex-wrap:
+        wrap;
+
+    justify-content:
+        center;
+
+    gap:
+        10px;
+
+    margin-top:
+        22px;
+
+}
+
+
+/* Accesibilidad por teclado en los controles nuevos */
+
+.btn-remove-gasto:focus-visible,
+.btn-add-gasto:focus-visible,
+.btn-delete-unit:focus-visible,
+.btn-danger:focus-visible {
+
+    outline:
+        3px solid rgba(37, 99, 235, .3);
+
+    outline-offset:
+        2px;
+
+}
+
+
+.btn-danger:focus-visible {
+
+    outline-color:
+        rgba(220, 38, 38, .35);
+
+}
+
+
+@media (
+    max-width: 750px
+) {
+
+    .gasto-fila {
+
+        grid-template-columns:
+            1fr;
+
+        gap:
+            10px;
+
+    }
+
+
+    .btn-remove-gasto {
+
+        width:
+            100%;
+
+        height:
+            44px;
+
+    }
+
+
+    .btn-delete-unit {
+
+        width:
+            48px;
+
+        height:
+            auto;
+
+    }
+
+}
