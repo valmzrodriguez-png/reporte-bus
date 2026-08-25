@@ -2014,6 +2014,150 @@ tfoot td {
 
 
 /* =====================================================
+   MODAL DE AVISO
+==================================================== */
+
+.aviso-card {
+
+    max-width:
+        calc(100vw - 40px);
+
+    width:
+        380px;
+
+    padding:
+        36px 32px 28px;
+
+    border-radius:
+        var(--radius-lg, 16px);
+
+    background:
+        var(--white);
+
+    box-shadow:
+        0 24px 64px -32px
+        rgba(
+            23,
+            32,
+            51,
+            0.45
+        );
+
+    text-align:
+        center;
+
+    animation:
+        exitoPop .22s ease;
+
+}
+
+
+.aviso-card .aviso-icono {
+
+    width:
+        68px;
+
+    height:
+        68px;
+
+    margin:
+        0 auto 16px;
+
+    border-radius:
+        50%;
+
+    background:
+        var(--blue);
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+}
+
+
+.aviso-card h3 {
+
+    margin:
+        0 0 8px;
+
+    font-size:
+        20px;
+
+    letter-spacing:
+        -.01em;
+
+    color:
+        var(--text);
+
+}
+
+
+.aviso-card .aviso-mensaje {
+
+    margin:
+        0;
+
+    color:
+        var(--muted);
+
+    font-size:
+        14px;
+
+    line-height:
+        1.55;
+
+    white-space:
+        pre-line;
+
+    overflow-wrap:
+        anywhere;
+
+}
+
+
+.aviso-card .aviso-btn {
+
+    margin-top:
+        20px;
+
+    min-width:
+        150px;
+
+}
+
+
+@media (
+    max-width: 750px
+) {
+
+    .aviso-card {
+
+        padding:
+            28px 22px 22px;
+
+    }
+
+}
+
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    .aviso-card {
+
+        animation:
+            none;
+
+    }
+
+}
+
+
+/* =====================================================
    PULIDO VISUAL (sombras suaves, hover, tabla, estados)
 ===================================================== */
 

@@ -151,13 +151,13 @@ async function obtenerRegistros() {
 
         if (error) {
             console.error("Error al cargar registros desde Supabase:", error);
-            alert("Error al cargar los registros: " + error.message);
+            mostrarModalAviso("Error al cargar", "No se pudieron cargar los registros: " + error.message);
             return [];
         }
         return (data || []).map(normalizarRegistro);
     } catch (error) {
         console.error("Fallo de red al consultar Supabase:", error);
-        alert("No se pudo conectar con la base de datos. Verifica tu conexión a internet y recarga la página.");
+        mostrarModalAviso("Sin conexión", "No se pudo conectar con la base de datos.\n\nVerifica tu conexión a internet y recarga la página.");
         return [];
     }
 }
@@ -289,7 +289,7 @@ form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     if (!clienteListo()) {
-        alert("La conexión con Supabase no está disponible.");
+        mostrarModalAviso("Sin conexión", "La conexión con Supabase no está disponible.");
         return;
     }
     if (guardando) return;
@@ -327,7 +327,7 @@ form.addEventListener("submit", async (e) => {
 
     if (error) {
         console.error("Error al guardar en Supabase:", error);
-        alert("Error al guardar el registro: " + error.message);
+        mostrarModalAviso("Error al guardar", "No se pudo guardar el registro: " + error.message);
         return;
     }
 
@@ -378,8 +378,31 @@ on("exitoOverlay", "click", (e) => {
     if (e.target === e.currentTarget) cerrarModalExito();
 });
 
+/* =====================================================
+   MODAL DE AVISO
+===================================================== */
+
+function mostrarModalAviso(titulo, mensaje) {
+    $id("avisoTitulo").textContent = titulo;
+    $id("avisoMensaje").textContent = mensaje;
+    $id("avisoOverlay").classList.add("show");
+}
+
+function cerrarModalAviso() {
+    $id("avisoOverlay").classList.remove("show");
+}
+
+on("avisoBtn", "click", cerrarModalAviso);
+
+on("avisoOverlay", "click", (e) => {
+    if (e.target === e.currentTarget) cerrarModalAviso();
+});
+
 document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") cerrarModalExito();
+    if (e.key === "Escape") {
+        cerrarModalExito();
+        cerrarModalAviso();
+    }
 });
 
 /* =====================================================
@@ -521,7 +544,7 @@ on("historyList", "click", async (e) => {
     if (!btn) return;
 
     if (!clienteListo()) {
-        alert("La conexión con Supabase no está disponible.");
+        mostrarModalAviso("Sin conexión", "La conexión con Supabase no está disponible.");
         return;
     }
     if (!confirm("¿Eliminar este registro?")) return;
@@ -529,7 +552,7 @@ on("historyList", "click", async (e) => {
     const error = await eliminarRegistro(btn.dataset.id);
     if (error) {
         console.error("Error al eliminar en Supabase:", error);
-        alert("Error al eliminar el registro: " + error.message);
+        mostrarModalAviso("Error al eliminar", "No se pudo eliminar el registro: " + error.message);
         return;
     }
 
@@ -541,7 +564,7 @@ on("historyList", "click", async (e) => {
    automáticamente la primera unidad disponible. */
 function asegurarUnidadParaReporte() {
     if (!registros.length) {
-        alert("Aún no hay registros para mostrar.\n\nGuarda un registro desde el formulario.");
+        mostrarModalAviso("Sin registros", "Aún no hay registros para mostrar.\n\nGuarda un registro desde el formulario.");
         return false;
     }
 
@@ -566,7 +589,7 @@ async function ejecutarAccionReporte(descripcion, accion) {
         await accion();
     } catch (error) {
         console.error(`Error al ${descripcion}:`, error);
-        alert(`Ocurrió un problema al ${descripcion}.\n\nDetalles: ${error?.message || error}`);
+        mostrarModalAviso("Error en el reporte", `Ocurrió un problema al ${descripcion}.\n\nDetalles: ${error?.message || error}`);
     }
 }
 
@@ -584,7 +607,7 @@ async function ejecutarAccionReporte(descripcion, accion) {
 
 async function limpiarTablaRegistros() {
     if (!clienteListo()) {
-        alert("La conexión con Supabase no está disponible.");
+        mostrarModalAviso("Sin conexión", "La conexión con Supabase no está disponible.");
         return false;
     }
 
@@ -600,7 +623,7 @@ async function limpiarTablaRegistros() {
 
     if (error) {
         console.error("Error al limpiar la tabla:", error);
-        alert("Error al limpiar la tabla: " + error.message);
+        mostrarModalAviso("Error al limpiar", "No se pudo limpiar la tabla: " + error.message);
         return false;
     }
 
@@ -632,19 +655,19 @@ function exportarPDF(resumido = false) {
     console.log(`[PDF] Generando ${resumido ? "tabla resumida" : "reporte detallado"} (unidad: ${unidadSeleccionada ?? "sin selección"})…`);
 
     if (!window.jspdf || !window.jspdf.jsPDF) {
-        alert("La librería jsPDF no se cargó. Revisa tu conexión a internet, desactiva bloqueadores y recarga la página.");
+        mostrarModalAviso("Librería no disponible", "La librería jsPDF no se cargó.\n\nRevisa tu conexión a internet, desactiva bloqueadores y recarga la página.");
         return;
     }
     const { jsPDF } = window.jspdf;
 
     if (!unidadSeleccionada) {
-        alert("Selecciona una unidad para exportar el reporte.");
+        mostrarModalAviso("Selecciona una unidad", "Selecciona una unidad para exportar el reporte.");
         return;
     }
 
     const calc = registrosDeUnidad(unidadSeleccionada);
     if (!calc.length) {
-        alert("La unidad seleccionada no tiene registros para exportar.");
+        mostrarModalAviso("Unidad sin registros", "La unidad seleccionada no tiene registros para exportar.");
         return;
     }
 
