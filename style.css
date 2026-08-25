@@ -71,6 +71,10 @@ textarea {
     font-family:
         inherit;
 
+    /* El padding nunca incrementa el ancho calculado */
+    box-sizing:
+        border-box;
+
 }
 
 
@@ -85,8 +89,11 @@ textarea {
     margin:
         auto;
 
+    /* Padding fluido: se adapta a ventanas reducidas */
     padding:
-        36px 40px 72px;
+        clamp(15px, 3vw, 36px)
+        clamp(12px, 3.5vw, 40px)
+        clamp(40px, 6vw, 72px);
 
 }
 
@@ -143,7 +150,7 @@ textarea {
 
 /* =====================================================
    LAYOUT — DASHBOARD DE ESCRITORIO (desktop first)
-   Columna izquierda: formulario (380px)
+   Columna izquierda: formulario (fluida 290–380px)
    Columna derecha: reporte semanal (resto)
    Fila inferior: unidades + historial alineados
 ===================================================== */
@@ -154,7 +161,7 @@ textarea {
         grid;
 
     grid-template-columns:
-        380px minmax(0, 1fr);
+        minmax(290px, 380px) minmax(0, 1fr);
 
     grid-template-areas:
         "form    preview"
@@ -347,6 +354,16 @@ textarea {
 }
 
 
+/* Campos en paralelo (ej. Producción y Combustible):
+   pueden encoger sin cortar valores ni montar el ícono */
+.form-grid > .field {
+
+    min-width:
+        0;
+
+}
+
+
 .field > span {
 
     font-size:
@@ -429,6 +446,9 @@ textarea {
 
     align-items:
         center;
+
+    min-width:
+        0;
 
     border:
         1px solid var(--border);
@@ -933,27 +953,11 @@ textarea {
    UNIDADES
 ===================================================== */
 
+/* =====================================================
+   UNIDADES — lista vertical fluida
+===================================================== */
+
 .units-list {
-
-    display:
-        grid;
-
-    grid-template-columns:
-        repeat(
-            2,
-            minmax(
-                0,
-                1fr
-            )
-        );
-
-    gap:
-        14px;
-
-}
-
-
-.unit-card {
 
     display:
         flex;
@@ -961,14 +965,93 @@ textarea {
     flex-direction:
         column;
 
+    gap:
+        12px;
+
+    width:
+        100%;
+
+    /* Scroll interno: el panel nunca se alarga indefinidamente */
+    max-height:
+        420px;
+
+    overflow-y:
+        auto;
+
+    scrollbar-width:
+        thin;
+
+    scrollbar-color:
+        #c7d5ea transparent;
+
+}
+
+
+.units-list::-webkit-scrollbar {
+
+    width:
+        8px;
+
+}
+
+
+.units-list::-webkit-scrollbar-track {
+
+    background:
+        transparent;
+
+}
+
+
+.units-list::-webkit-scrollbar-thumb {
+
+    background-color:
+        #c7d5ea;
+
+    background-clip:
+        padding-box;
+
+    border:
+        2px solid transparent;
+
+    border-radius:
+        999px;
+
+}
+
+
+.units-list::-webkit-scrollbar-thumb:hover {
+
+    background-color:
+        #a8bedd;
+
+}
+
+
+/* Tarjeta horizontal: información de la unidad a la
+   izquierda y botón eliminar integrado a la derecha */
+.unit-card {
+
+    display:
+        flex;
+
+    justify-content:
+        space-between;
+
     align-items:
-        flex-start;
+        center;
 
     gap:
-        5px;
+        12px;
+
+    width:
+        100%;
+
+    box-sizing:
+        border-box;
 
     padding:
-        18px;
+        14px 16px;
 
     border:
         1px solid var(--border);
@@ -984,6 +1067,23 @@ textarea {
 
     text-align:
         left;
+
+}
+
+
+.unit-info {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        4px;
+
+    min-width:
+        0;
 
 }
 
@@ -1014,23 +1114,6 @@ textarea {
 
     font-size:
         12px;
-
-}
-
-
-button.unit-card {
-
-    appearance:
-        none;
-
-    font:
-        inherit;
-
-    font-size:
-        14px;
-
-    color:
-        var(--text);
 
 }
 
@@ -1655,15 +1738,18 @@ tfoot td {
     .app-shell {
 
         padding:
-            30px 28px 60px;
+            clamp(20px, 2.5vw, 30px)
+            clamp(16px, 2.5vw, 28px)
+            clamp(44px, 5vw, 60px);
 
     }
 
 
     .layout {
 
+        /* Sidebar fluida: nunca desborda en ventanas estrechas */
         grid-template-columns:
-            340px minmax(0, 1fr);
+            minmax(240px, 340px) minmax(0, 1fr);
 
         gap:
             22px;
@@ -1674,7 +1760,7 @@ tfoot td {
 
 
 @media (
-    max-width: 1023px
+    max-width: 1024px
 ) {
 
     .app-shell {
@@ -1708,7 +1794,7 @@ tfoot td {
 
 
 @media (
-    max-width: 750px
+    max-width: 768px
 ) {
 
     .app-shell {
@@ -1801,10 +1887,12 @@ tfoot td {
     }
 
 
-    .units-list {
+    /* La lista de unidades ya es vertical fluida;
+       la tarjeta se mantiene horizontal (info + caneca) */
+    .unit-card {
 
-        grid-template-columns:
-            1fr;
+        padding:
+            13px 14px;
 
     }
 
@@ -1943,18 +2031,18 @@ tfoot td {
     }
 
 
-    /* Inputs cómodos para interacción táctil
-       (16px evita el zoom automático en iOS) */
+    /* Inputs compactos: más espacio de lectura en pantallas
+       pequeñas (0.875rem) con padding reducido */
 
     input,
     select,
     textarea {
 
         font-size:
-            16px;
+            0.875rem;
 
         padding:
-            13px 14px;
+            11px 12px;
 
     }
 
@@ -1962,7 +2050,7 @@ tfoot td {
     input[type="date"] {
 
         min-height:
-            50px;
+            46px;
 
     }
 
@@ -1970,7 +2058,7 @@ tfoot td {
     .money-input {
 
         min-height:
-            50px;
+            46px;
 
     }
 
@@ -1978,7 +2066,7 @@ tfoot td {
     .money-input input {
 
         font-size:
-            16px;
+            0.875rem;
 
     }
 
@@ -2191,7 +2279,7 @@ tfoot td {
 
 
 @media (
-    max-width: 750px
+    max-width: 768px
 ) {
 
     .success-card {
@@ -2335,7 +2423,7 @@ tfoot td {
 
 
 @media (
-    max-width: 750px
+    max-width: 768px
 ) {
 
     .aviso-card {
@@ -3027,22 +3115,24 @@ tbody tr:hover td:first-child {
 }
 
 
+/* Fila fluida: si el ancho no alcanza, el campo Concepto
+   baja automáticamente debajo de Monto sin romper la tarjeta */
 .gasto-fila {
 
     display:
-        grid;
+        flex;
 
-    grid-template-columns:
-        minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
-
-    gap:
-        12px;
+    flex-wrap:
+        wrap;
 
     align-items:
-        end;
+        flex-end;
+
+    gap:
+        10px;
 
     padding:
-        12px 14px 14px 12px;
+        10px 12px 12px;
 
     border:
         1.5px dashed var(--border);
@@ -3056,15 +3146,83 @@ tbody tr:hover td:first-child {
 }
 
 
+/* Etiquetas alineadas verticalmente con su campo */
 .gasto-fila .field > span {
 
     font-size:
         12px;
 
+    line-height:
+        1.3;
+
+}
+
+
+/* Monto ($): base cómoda y encogible; nunca tapa el
+   símbolo ni los controles numéricos */
+.gasto-fila .campo-monto {
+
+    flex:
+        0 1 118px;
+
+    min-width:
+        104px;
+
+}
+
+
+/* Concepto: crece para tomar el resto; si no cabe su
+   base mínima, se reordena a la línea siguiente */
+.gasto-fila .campo-concepto {
+
+    flex:
+        1 1 110px;
+
+    min-width:
+        0;
+
+}
+
+
+/* Inputs de las filas de gasto: padding y fuente reducidos
+   para aprovechar mejor el ancho disponible */
+#gastosLista input {
+
+    padding:
+        8px 10px;
+
+    font-size:
+        14px;
+
+}
+
+
+/* El monto va alineado a la derecha: se reserva espacio
+   extra para los controles del input numérico y así la
+   cifra ingresada siempre queda visible */
+#gastosLista .gasto-monto {
+
+    padding-right:
+        28px;
+
+}
+
+
+#gastosLista .money-input > span {
+
+    padding-left:
+        10px;
+
+    font-size:
+        14px;
+
 }
 
 
 .btn-remove-gasto {
+
+    flex:
+        none;
 
     display:
         grid;
@@ -3073,10 +3231,10 @@ tbody tr:hover td:first-child {
         center;
 
     width:
-        44px;
+        36px;
 
     height:
-        50px;
+        37px;
 
     border:
         0;
@@ -3165,41 +3323,13 @@ tbody tr:hover td:first-child {
 
 
 /* =====================================================
-   BORRAR UNIDAD (panel Unidades registradas)
+   BORRAR UNIDAD (integrado dentro de la tarjeta)
 ===================================================== */
-
-.unit-item {
-
-    display:
-        flex;
-
-    gap:
-        8px;
-
-    min-width:
-        0;
-
-}
-
-
-.unit-item .unit-card {
-
-    flex:
-        1;
-
-    min-width:
-        0;
-
-}
-
 
 .btn-delete-unit {
 
     flex:
         none;
-
-    align-self:
-        stretch;
 
     display:
         grid;
@@ -3208,7 +3338,10 @@ tbody tr:hover td:first-child {
         center;
 
     width:
-        46px;
+        38px;
+
+    height:
+        38px;
 
     appearance:
         none;
@@ -3220,7 +3353,7 @@ tbody tr:hover td:first-child {
         1px solid #fecaca;
 
     border-radius:
-        14px;
+        12px;
 
     background:
         #fff5f5;
@@ -3331,16 +3464,71 @@ tbody tr:hover td:first-child {
 
 
 @media (
-    max-width: 750px
+    max-width: 768px
 ) {
 
+    /* En móvil cada fila se apila en vertical:
+       Monto y Concepto a ancho completo */
     .gasto-fila {
 
-        grid-template-columns:
-            1fr;
+        flex-direction:
+            column;
+
+        align-items:
+            stretch;
 
         gap:
             10px;
+
+    }
+
+
+    .gasto-fila .campo-monto {
+
+        flex:
+            none;
+
+        width:
+            100%;
+
+        min-width:
+            0;
+
+    }
+
+
+    .gasto-fila .campo-concepto {
+
+        flex:
+            none;
+
+        width:
+            100%;
+
+    }
+
+
+    /* Tipografía compacta coherente con el resto del
+       formulario en móvil (el padding queda incluido
+       en el ancho por box-sizing: border-box) */
+    #gastosLista input {
+
+        font-size:
+            0.875rem;
+
+        padding:
+            10px 11px;
+
+        width:
+            100%;
+
+    }
+
+
+    #gastosLista .gasto-monto {
+
+        padding-right:
+            26px;
 
     }
 
@@ -3359,10 +3547,10 @@ tbody tr:hover td:first-child {
     .btn-delete-unit {
 
         width:
-            48px;
+            40px;
 
         height:
-            auto;
+            40px;
 
     }
 

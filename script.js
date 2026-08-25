@@ -275,14 +275,14 @@ const tieneGastoSelect = $id("tieneGastoAdicional");
 function crearFilaGastoHTML() {
     return `
         <div class="gasto-fila">
-            <label class="field">
+            <label class="field campo-monto">
                 <span>Monto ($)</span>
                 <div class="money-input">
                     <span>$</span>
                     <input type="number" class="gasto-monto" min="0" step="0.01" placeholder="0.00">
                 </div>
             </label>
-            <label class="field">
+            <label class="field campo-concepto">
                 <span>Concepto</span>
                 <input type="text" class="gasto-concepto" placeholder="Ej: Llanta, aceite, multa…" maxlength="80">
             </label>
@@ -604,14 +604,14 @@ function renderUnidades() {
             const t = totalesUnidad(u);
             const activa = u === unidadSeleccionada ? " activa" : "";
             return `
-                <div class="unit-item">
-                    <button type="button" class="unit-card${activa}" data-unidad="${esc(u)}">
+                <div class="unit-card${activa}" data-unidad="${esc(u)}" role="button" tabindex="0" aria-label="Ver reporte de la Unidad ${esc(u)}">
+                    <div class="unit-info">
                         <strong>Unidad ${esc(u)}</strong>
                         <span>${t.dias} día(s) · Producción ${fmtMoneda(t.produccion)}</span>
                         <span>Depósito ${fmtMoneda(t.deposito)}</span>
-                    </button>
+                    </div>
                     <button type="button" class="btn-delete-unit" data-unidad="${esc(u)}" title="Borrar Unidad ${esc(u)}" aria-label="Borrar Unidad ${esc(u)}">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polyline points="3 6 5 6 21 6"/>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                             <line x1="10" y1="11" x2="10" y2="17"/>
@@ -622,6 +622,19 @@ function renderUnidades() {
         })
         .join("");
 }
+
+/* La tarjeta ya no es un <button> nativo: se maneja
+   Enter / Espacio para seleccionarla por teclado */
+on("unitsList", "keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+
+    const card = e.target.closest(".unit-card");
+    if (!card || e.target.closest(".btn-delete-unit")) return;
+
+    e.preventDefault();
+    unidadSeleccionada = card.dataset.unidad;
+    renderTodo();
+});
 
 on("unitsList", "click", (e) => {
     const btnBorrar = e.target.closest(".btn-delete-unit");
