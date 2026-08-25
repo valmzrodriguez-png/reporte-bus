@@ -1,4 +1,16 @@
 "use strict";
+
+/* Marcador para confirmar en consola qué versión ejecuta el navegador */
+console.log("%c[script.js] v3 — carga desde Supabase + barra de reportes activa", "color:#2563eb;font-weight:bold;");
+
+/* Ningún error puede quedar invisible */
+window.addEventListener("error", (e) => {
+    console.error("[script.js] Error global:", e.error || e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+    console.error("[script.js] Promesa rechazada sin capturar:", e.reason);
+});
+
 // Configuración de conexión con Supabase
 const SUPABASE_URL = 'https://jitzndfgjvecfcfilhkk.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_BxmzeB0IdA1Yym0SVZzZ-w_2X_Dsiem';
@@ -17,6 +29,18 @@ try {
    ===================================================== */
 
 const $id = (id) => document.getElementById(id);
+
+/* Conecta eventos sin romper el resto del script si un
+   elemento no existe en el HTML */
+function on(id, evento, manejador) {
+    const el = $id(id);
+    if (!el) {
+        console.error(`[script.js] No se encontró el elemento #${id} en index.html`);
+        return null;
+    }
+    el.addEventListener(evento, manejador);
+    return el;
+}
 
 /* =====================================================
    UTILIDADES
@@ -120,34 +144,66 @@ function normalizarRegistro(fila) {
 ===================================================== */
 
 async function obtenerRegistros() {
-    const { data, error } = await supabaseClient
-        .from(TABLA_REGISTROS)
-        .select("*")
-        .order("fecha", { ascending: false })
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        console.error("Error al cargar registros desde Supabase:", error);
-        alert("Error al cargar los registros: " + error.message);
+    if (!clienteListo()) {
+        console.error("Supabase no está disponible (revisa tu conexión o el CDN). No se pudieron cargar los registros.");
         return [];
     }
-    return (data || []).map(normalizarRegistro);
+
+    try {
+        const { data, error } = await supabaseClient
+            .from(TABLA_REGISTROS)
+            .select("*")
+            .order("fecha", { ascending: false })
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Error al cargar registros desde Supabase:", error);
+            alert("Error al cargar los registros: " + error.message);
+            return [];
+        }
+        return (data || []).map(normalizarRegistro);
+    } catch (error) {
+        console.error("Fallo de red al consultar Supabase:", error);
+        alert("No se pudo conectar con la base de datos. Verifica tu conexión a internet y recarga la página.");
+        return [];
+    }
 }
 
 async function insertarRegistro(payload) {
-    const { data, error } = await supabaseClient
-        .from(TABLA_REGISTROS)
-        .insert(payload)
-        .select();
-    return { data, error };
+    if (!clienteListo()) {
+        return { data: null, error: { message: "Supabase no está disponible." } };
+    }
+    try {
+        const { data, error } = await supabaseClient
+            .from(TABLA_REGISTROS)
+            .insert(payload)
+            .select();
+        return { data, error };
+    } catch (error) {
+        return { data: null, error };
+    }
 }
 
 async function eliminarRegistro(registroId) {
-    const { error } = await supabaseClient
-        .from(TABLA_REGISTROS)
-        .delete()
-        .eq("id", registroId);
-    return error;
+    if (!clienteListo()) {
+        return { message: "Supabase no está disponible." };
+    }
+    try {
+        const { error } = await supabaseClient
+            .from(TABLA_REGISTROS)
+            .delete()
+            .eq("id", registroId);
+        return error;
+    } catch (error) {
+        return error;
+    }
+}
+
+/* Trae siempre los datos más recientes desde Supabase */
+async function sincronizarConSupabase() {
+    if (clienteListo()) {
+        registros = await obtenerRegistros();
+    }
 }
 
 async function refrescarInterfaz() {
@@ -289,7 +345,7 @@ form.addEventListener("submit", async (e) => {
     mostrarModalExito(payload.unidad, payload.deposito);
 });
 
-$id("resetFormBtn").addEventListener("click", () => reiniciarFormulario(true));
+on("resetFormBtn", "click", () => reiniciarFormulario(true));
 
 function reiniciarFormulario(limpiarTodo) {
     const unidadPrev = $id("numeroUnidad").value;
@@ -325,7 +381,7 @@ function cerrarModalExito() {
     $id("exitoOverlay").classList.remove("show");
 }
 
-$id("exitoOverlay").addEventListener("click", (e) => {
+on("exitoOverlay", "click", (e) => {
     if (e.target === e.currentTarget) cerrarModalExito();
 });
 
@@ -367,7 +423,7 @@ function renderUnidades() {
         .join("");
 }
 
-$id("unitsList").addEventListener("click", (e) => {
+on("unitsList", "click", (e) => {
     const card = e.target.closest(".unit-card");
     if (!card) return;
     unidadSeleccionada = card.dataset.unidad;
@@ -465,9 +521,9 @@ function renderHistorial(filtro = "") {
             </li>`).join("");
 }
 
-$id("historySearch").addEventListener("input", (e) => renderHistorial(e.target.value));
+on("historySearch", "input", (e) => renderHistorial(e.target.value));
 
-$id("historyList").addEventListener("click", async (e) => {
+on("historyList", "click", async (e) => {
     const btn = e.target.closest(".btn-delete");
     if (!btn) return;
 
@@ -487,21 +543,39 @@ $id("historyList").addEventListener("click", async (e) => {
     await refrescarInterfaz();
 });
 
-$id("printReportBtn").addEventListener("click", () => {
-    if (!unidadSeleccionada || !registrosDeUnidad(unidadSeleccionada).length) {
-        alert("Selecciona una unidad con registros antes de imprimir.");
-        return;
+/* Garantiza que exista una unidad con datos antes de
+   imprimir o exportar; si no hay selección, toma
+   automáticamente la primera unidad disponible. */
+function asegurarUnidadParaReporte() {
+    if (!registros.length) {
+        alert("Aún no hay registros para mostrar.\n\nGuarda un registro desde el formulario o usa el botón «Insertar datos de prueba».");
+        return false;
     }
-    window.print();
-});
 
-$id("newReportBtn").addEventListener("click", () => {
-    unidadSeleccionada = null;
-    reiniciarFormulario(false);
+    if (!unidadSeleccionada || !registrosDeUnidad(unidadSeleccionada).length) {
+        unidadSeleccionada = unidadesRegistradas()
+            .sort((a, b) => num(a) - num(b))[0];
+        renderTodo();
+    }
+    return true;
+}
+
+/* Refresca desde Supabase y deja lista una unidad */
+async function prepararReporte() {
+    await sincronizarConSupabase();
     renderTodo();
-    document.querySelector(".form-panel")?.scrollIntoView({ behavior: "smooth" });
-    $id("numeroUnidad").focus();
-});
+    return asegurarUnidadParaReporte();
+}
+
+/* Envoltorio: ningún clic puede fallar en silencio */
+async function ejecutarAccionReporte(descripcion, accion) {
+    try {
+        await accion();
+    } catch (error) {
+        console.error(`Error al ${descripcion}:`, error);
+        alert(`Ocurrió un problema al ${descripcion}.\n\nDetalles: ${error?.message || error}`);
+    }
+}
 
 /* =====================================================
    DATOS DE PRUEBA
@@ -569,7 +643,7 @@ async function insertarRegistrosDePrueba(silencioso = false) {
 /* Disponible también desde la consola del navegador */
 window.insertarRegistrosDePrueba = insertarRegistrosDePrueba;
 
-$id("btnDatosPrueba").addEventListener("click", () => insertarRegistrosDePrueba(false));
+on("btnDatosPrueba", "click", () => insertarRegistrosDePrueba(false));
 
 /* =====================================================
    EXPORTACIÓN PDF (jsPDF)
@@ -589,10 +663,14 @@ const PDF_PALETA = {
 };
 
 function exportarPDF(resumido = false) {
+    console.log(`[PDF] Generando ${resumido ? "tabla resumida" : "reporte detallado"} (unidad: ${unidadSeleccionada ?? "sin selección"})…`);
+
     if (!window.jspdf || !window.jspdf.jsPDF) {
-        alert("No se pudo cargar la librería jsPDF. Verifica tu conexión a internet.");
+        alert("La librería jsPDF no se cargó. Revisa tu conexión a internet, desactiva bloqueadores y recarga la página.");
         return;
     }
+    const { jsPDF } = window.jspdf;
+
     if (!unidadSeleccionada) {
         alert("Selecciona una unidad para exportar el reporte.");
         return;
@@ -604,7 +682,7 @@ function exportarPDF(resumido = false) {
         return;
     }
 
-    const doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const C = PDF_PALETA;
 
     const anchoPagina = doc.internal.pageSize.getWidth();
@@ -874,30 +952,102 @@ function agregarConsolidadoPDF(doc, opts) {
     return y + hTotal;
 }
 
-$id("downloadDetailedPdfBtn").addEventListener("click", () => exportarPDF(false));
-$id("downloadSummaryPdfBtn").addEventListener("click", () => exportarPDF(true));
+/* Vincula los 4 botones de la barra de reportes */
+function vincularBarraReportes() {
+    on("downloadDetailedPdfBtn", "click", () => {
+        console.log("[clic] Botón «Reporte semanal»");
+        ejecutarAccionReporte("generar el reporte semanal", async () => {
+            if (!(await prepararReporte())) return;
+            exportarPDF(false);
+        });
+    });
+
+    on("downloadSummaryPdfBtn", "click", () => {
+        console.log("[clic] Botón «Tabla resumida»");
+        ejecutarAccionReporte("generar la tabla resumida", async () => {
+            if (!(await prepararReporte())) return;
+            exportarPDF(true);
+        });
+    });
+
+    on("printReportBtn", "click", () => {
+        console.log("[clic] Botón «Imprimir»");
+        ejecutarAccionReporte("imprimir el reporte", async () => {
+            if (!(await prepararReporte())) return;
+            window.print();
+        });
+    });
+
+    on("newReportBtn", "click", () => {
+        console.log("[clic] Botón «Nuevo registro»");
+        ejecutarAccionReporte("preparar el nuevo registro", async () => {
+            unidadSeleccionada = null;
+            reiniciarFormulario(false);
+            renderTodo();
+
+            const panelFormulario = document.querySelector(".form-panel");
+            panelFormulario?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+            const primerCampo = $id("numeroUnidad");
+            primerCampo.focus();
+            primerCampo.select();
+        });
+    });
+
+    console.log("[script.js] Barra de reportes vinculada.");
+}
 
 /* =====================================================
    INICIALIZACIÓN
 ===================================================== */
 
-(async function iniciar() {
+async function inicializarApp() {
     fechaInput.value = hoyISO();
     diaSemanaInput.value = nombreDia(fechaInput.value);
     actualizarCamposGasto();
     calcularEnVivo();
 
-    if (clienteListo()) {
-        registros = await obtenerRegistros();
+    try {
+        /* 1) Carga automática ANTES de renderizar:
+              SELECT * FROM registros_semanales */
+        console.log("[init] Consultando registros en Supabase…");
+        await sincronizarConSupabase();
+        console.log(`[init] Registros recibidos: ${registros.length}`);
 
-        /* Si la tabla está vacía, siembra datos de prueba automáticamente */
-        if (!registros.length) {
+        /* 2) Si la tabla está vacía, siembra datos de prueba */
+        if (clienteListo() && !registros.length) {
             const ok = await insertarRegistrosDePrueba(true);
             if (ok) {
-                registros = await obtenerRegistros();
+                await sincronizarConSupabase();
+                console.log(`[init] Tras sembrar datos: ${registros.length} registros`);
             }
         }
+    } catch (error) {
+        console.error("Error al inicializar los datos desde Supabase:", error);
     }
 
+    /* 3) Auto-selecciona la primera unidad disponible */
+    if (registros.length && !unidadSeleccionada) {
+        unidadSeleccionada = unidadesRegistradas()
+            .sort((a, b) => num(a) - num(b))[0];
+    }
+
+    /* 4) AHORA sí: pinta métricas, tabla e historial */
     renderTodo();
-})();
+
+    console.log(`[init] Interfaz lista. Unidad mostrada: ${unidadSeleccionada ?? "ninguna"}`);
+
+    if (!clienteListo()) {
+        console.warn("[init] Modo limitado: el CDN de Supabase no respondió.");
+    }
+}
+
+/* Los botones se vinculan al cargar el script (el DOM ya existe
+   porque script.js va al final del body), sin depender del fetch */
+vincularBarraReportes();
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", inicializarApp);
+} else {
+    inicializarApp();
+}
