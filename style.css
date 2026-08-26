@@ -2073,22 +2073,71 @@ tfoot td {
 }
 
 
+/* =====================================================
+   IMPRESIÓN / EXPORTACIÓN PDF — Estética minimalista
+===================================================== */
+
 @media print {
 
-    body {
+    * {
 
-        background:
-            white;
+        -webkit-print-color-adjust:
+            exact;
+
+        print-color-adjust:
+            exact;
 
     }
 
 
+    body {
+
+        background:
+            #ffffff !important;
+
+        color:
+            #000000;
+
+        font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+
+        font-size:
+            12px;
+
+        margin:
+            0;
+
+        padding:
+            0;
+
+    }
+
+
+    /* Ocultar todo lo que no sea el reporte */
+
     .topbar,
     .form-panel,
+    .units-panel,
     .units-list,
     .history-panel,
     .pdf-options,
-    .overlay {
+    .overlay,
+    .btn,
+    .btn-delete,
+    .btn-delete-unit,
+    .chip,
+    .calculation-badge,
+    .actions,
+    .eyebrow,
+    .stop-message,
+    .stop-icon,
+    .summary-card,
+    .weekly-summary,
+    .preview-meta,
+    .btn-add-gasto,
+    .btn-remove-gasto {
 
         display:
             none !important;
@@ -2096,13 +2145,265 @@ tfoot td {
     }
 
 
+    .layout {
+
+        display:
+            block;
+
+        margin:
+            0;
+
+        padding:
+            0;
+
+    }
+
+
+    .app-shell {
+
+        max-width:
+            none;
+
+        padding:
+            0;
+
+        margin:
+            0;
+
+    }
+
+
     .panel {
 
+        background:
+            #ffffff !important;
+
         border:
+            none !important;
+
+        border-radius:
+            0 !important;
+
+        box-shadow:
+            none !important;
+
+        padding:
             0;
+
+    }
+
+
+    .preview-panel {
+
+        display:
+            block;
+
+    }
+
+
+    /* Encabezado del reporte */
+
+    .preview-header {
+
+        display:
+            block;
+
+        border-bottom:
+            2px solid #000000;
+
+        padding-bottom:
+            10px;
+
+        margin-bottom:
+            16px;
+
+    }
+
+
+    .preview-header h2 {
+
+        font-size:
+            22px;
+
+        color:
+            #000000;
+
+        margin:
+            0;
+
+    }
+
+
+    /* Tabla principal — estilo formal y limpio */
+
+    .table-container {
+
+        border:
+            1px solid #000000;
+
+        border-radius:
+            0;
+
+        max-height:
+            none;
+
+        overflow:
+            visible;
+
+        margin-bottom:
+            16px;
+
+    }
+
+
+    table {
+
+        width:
+            100%;
+
+        border-collapse:
+            collapse;
+
+        min-width:
+            0;
+
+        font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+
+    }
+
+
+    th {
+
+        background:
+            #ffffff !important;
+
+        color:
+            #000000;
+
+        font-weight:
+            bold;
+
+        font-size:
+            11px;
+
+        padding:
+            8px 12px;
+
+        border:
+            1px solid #000000;
+
+        text-transform:
+            none;
+
+        letter-spacing:
+            normal;
+
+        text-align:
+            left;
+
+    }
+
+
+    td {
+
+        background:
+            #ffffff !important;
+
+        color:
+            #000000;
+
+        font-size:
+            11px;
+
+        padding:
+            7px 12px;
+
+        border:
+            1px solid #000000;
+
+        text-align:
+            left;
+
+    }
+
+
+    thead th {
+
+        position:
+            static;
 
         box-shadow:
             none;
+
+    }
+
+
+    tfoot td {
+
+        position:
+            static;
+
+        background:
+            #ffffff !important;
+
+        font-weight:
+            bold;
+
+        border:
+            1px solid #000000;
+
+    }
+
+
+    tbody tr:hover {
+
+        background:
+            #ffffff !important;
+
+    }
+
+
+    tbody tr:hover td:first-child {
+
+        box-shadow:
+            none;
+
+    }
+
+
+    /* Ajuste de página A4 */
+
+    @page {
+
+        size:
+            A4 portrait;
+
+        margin:
+            15mm 12mm;
+
+    }
+
+
+    /* Evitar cortes de tabla */
+
+    table,
+    tr,
+    td,
+    th {
+
+        page-break-inside:
+            avoid;
+
+    }
+
+
+    thead {
+
+        display:
+            table-header-group;
 
     }
 
@@ -3075,29 +3376,7 @@ tbody tr:hover td:first-child {
 }
 
 
-/* Impresión: sin alturas fijas ni posiciones pegajosas */
-@media print {
 
-    .table-container {
-
-        max-height:
-            none;
-
-        overflow:
-            visible;
-
-    }
-
-
-    thead th,
-    tfoot td {
-
-        position:
-            static;
-
-    }
-
-}
 
 
 /* =====================================================

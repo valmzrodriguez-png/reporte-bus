@@ -968,348 +968,556 @@ async function limpiarTablaRegistros() {
 window.limpiarTablaRegistros = limpiarTablaRegistros;
 
 /* =====================================================
-   EXPORTACIÓN PDF (jsPDF)
+   SEMANA COMPLETA — Lunes a Domingo
+   Genera los 7 días de la semana para el reporte.
+   Si un día no tiene registro, lo rellena con guiones.
+   ===================================================== */
+
+/**
+ * Convierte un string ISO "YYYY-MM-DD" a objeto Date (mediodía).
+ */
+function _isoADate(iso) {
+    return new Date(iso + "T12:00:00");
+}
+
+/**
+ * Obtiene el lunes de la semana que contiene la fecha dada.
+ */
+function _lunesDeLaSemana(fecha) {
+    const d = new Date(fecha);
+    const dia = d.getDay();           // 0=Dom, 1=Lun, …, 6=Sáb
+    const diff = dia === 0 ? -6 : 1 - dia;   // offset hasta lunes
+    d.setDate(d.getDate() + diff);
+    return d;
+}
+
+/**
+ * Formatea un Date a "YYYY-MM-DD".
+ */
+function _dateAISO(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
+/**
+ * Genera un array de 7 objetos (Lunes → Domingo) para la semana
+ * que contiene los registros de la unidad.
+ *
+ * Cada objeto: { dia, fecha, fechaISO, ruta, deposito, estadoDia, registro }
+ * Si no hay registro para ese día, deposito = null, ruta = "", estadoDia = "sin_registro".
+ *
+ * @param {Array} regs — registrosDeUnidad(unidad), ya ordenados
+ * @returns {Array} 7 elementos
+ */
+function construirSemanaCompleta(regs) {
+    if (!regs.length) return [];
+
+    /* Rango de fechas de los registros */
+    const fechas = regs.map(r => _isoADate(r.fecha)).sort((a, b) => a - b);
+    const primera = fechas[0];
+    const ultima  = fechas[fechas.length - 1];
+
+    /* Lunes anterior o igual a la primera fecha; domingo posterior o igual a la última */
+    const lunesInicio = _lunesDeLaSemana(primera);
+    const domingoFin  = new Date(lunesInicio);
+    domingoFin.setDate(domingoFin.getDate() + 6);
+
+    /* Si los registros abarcan más de una semana, extender hasta cubrir todos */
+    if (ultima > domingoFin) {
+        const nuevoDomingo = _lunesDeLaSemana(ultima);
+        nuevoDomingo.setDate(nuevoDomingo.getDate() + 6);
+        domingoFin.setTime(nuevoDomingo.getTime());
+    }
+
+    /* Mapa rápido: fechaISO → registro */
+    const mapa = new Map();
+    regs.forEach(r => mapa.set(r.fecha, r));
+
+    /* Construir todos los días Lun→Dom en el rango */
+    const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const resultado = [];
+    const cursor = new Date(lunesInicio);
+
+    while (cursor <= domingoFin) {
+        const iso = _dateAISO(cursor);
+        const reg = mapa.get(iso);
+        const diaSemana = diasSemana[cursor.getDay() === 0 ? 6 : cursor.getDay() - 1];
+
+        resultado.push({
+            dia:       diaSemana,
+            fecha:     fmtFecha(iso),
+            fechaISO:  iso,
+            ruta:      reg ? (reg.ruta || "-") : "",
+            deposito:  reg ? reg.deposito : null,
+            estadoDia: reg ? reg.estadoDia : "sin_registro",
+            registro:  reg || null,
+        });
+
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return resultado;
+}
+
+/* =====================================================
+   EXPORTACIÓN PDF — Formato minimalista B/N
 ===================================================== */
 
-const PDF_PALETA = {
-    texto: [23, 32, 51],
-    gris: [100, 116, 139],
-    azul: [37, 99, 235],
-    azulOscuro: [23, 69, 181],
-    borde: [214, 224, 238],
-    fondoHead: [23, 32, 51],
-    zebra: [246, 249, 255],
-    totalesFondo: [238, 245, 255],
-    verde: [7, 136, 63],
-    verdeFondo: [234, 249, 240],
-};
-
-function exportarPDF(resumido = false) {
-    console.log(`[PDF] Generando ${resumido ? "tabla resumida" : "reporte detallado"} (unidad: ${unidadSeleccionada ?? "sin selección"})…`);
-
+/**
+ * Genera y descarga el PDF del Reporte Semanal de una unidad.
+ * Formato: título UNIDAD XX, tabla 4 columnas (Día, Fecha, Ruta, Depósito),
+ * total depositado al pie alineado a la derecha.
+ *
+ * @param {string} unidadId  — Número de la unidad seleccionada
+ * @param {Array}  registros — Lista normalizada de registros de la unidad
+ */
+function generarPDFReporteSemanal(unidadId, registros) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-        mostrarModalAviso("Librería no disponible", "La librería jsPDF no se cargó.\n\nRevisa tu conexión a internet, desactiva bloqueadores y recarga la página.");
+        mostrarModalAviso(
+            "Librería no disponible",
+            "La librería jsPDF no se cargó.\n\nVerifica tu conexión a internet y recarga la página."
+        );
         return;
     }
     const { jsPDF } = window.jspdf;
 
-    if (!unidadSeleccionada) {
-        mostrarModalAviso("Selecciona una unidad", "Selecciona una unidad para exportar el reporte.");
-        return;
-    }
-
-    const calc = registrosDeUnidad(unidadSeleccionada);
-    if (!calc.length) {
-        mostrarModalAviso("Unidad sin registros", "La unidad seleccionada no tiene registros para exportar.");
+    if (!registros || !registros.length) {
+        mostrarModalAviso("Sin registros", "La unidad no tiene registros para exportar.");
         return;
     }
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const C = PDF_PALETA;
 
-    const anchoPagina = doc.internal.pageSize.getWidth();
-    const altoPagina = doc.internal.pageSize.getHeight();
-    const M = { izq: 12, der: 12, sup: 14, inf: 18 };
-    const anchoUtil = anchoPagina - M.izq - M.der;
-    const limiteY = () => altoPagina - M.inf;
+    const pagAncho = doc.internal.pageSize.getWidth();
+    const pagAlto  = doc.internal.pageSize.getHeight();
+    const M = { l: 18, r: 18, t: 22, b: 18 };
+    const utilW = pagAncho - M.l - M.r;
+    const maxY  = () => pagAlto - M.b;
 
-    /* ---------- Encabezado del documento ---------- */
-    let y = M.sup;
+    const t = totalesUnidad(unidadId);
+    const semana = construirSemanaCompleta(registros);
 
-    doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...C.texto);
-    doc.text(resumido ? "REPORTE SEMANAL RESUMIDO" : "REPORTE SEMANAL DETALLADO", M.izq, y);
+    /* ---- Título ---- */
+    let y = M.t;
+    doc.setFont("helvetica", "bold").setFontSize(22).setTextColor(0, 0, 0);
+    doc.text("UNIDAD " + unidadId, M.l, y);
+    y += 12;
 
-    y += 5.5;
-    doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(...C.gris);
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.8);
+    doc.line(M.l, y, pagAncho - M.r, y);
+    y += 8;
 
-    const rutas = [...new Set(calc.map((r) => r.ruta).filter(Boolean))].join(" / ");
-    const periodo = `${fmtFecha(calc[0].fecha)} – ${fmtFecha(calc[calc.length - 1].fecha)}`;
-    doc.text(`Unidad ${unidadSeleccionada}  ·  Ruta: ${rutas || "-"}`, M.izq, y);
-    doc.text(`Generado: ${ahoraTexto()}`, anchoPagina - M.der, y, { align: "right" });
+    /* ---- Columnas: Día | Fecha | Ruta | Depósito ---- */
+    const cols = [
+        { label: "Día",       pct: 0.18, align: "left"  },
+        { label: "Fecha",     pct: 0.22, align: "left"  },
+        { label: "Ruta",      pct: 0.40, align: "left"  },
+        { label: "Depósito",  pct: 0.20, align: "right" },
+    ];
 
-    y += 3.5;
-    doc.setFontSize(8.5);
-    doc.text(`Periodo: ${periodo}`, M.izq, y);
+    const colW = cols.map(c => utilW * c.pct);
+    const colX = [];
+    let acc = M.l;
+    colW.forEach(w => { colX.push(acc); acc += w; });
 
-    y += 2.5;
-    doc.setDrawColor(...C.azul).setLineWidth(0.6);
-    doc.line(M.izq, y, anchoPagina - M.der, y);
+    const PADX   = 3;
+    const LH     = 5;
+    const HHEAD  = 9;
+    const HFILA  = 10;
+    const FS     = 9.5;
+
+    /* ---- Cabecera de tabla (cuadrícula completa) ---- */
+    function dibujarCabecera(y0) {
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
+        doc.rect(M.l, y0, utilW, HHEAD);
+        doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(0, 0, 0);
+        cols.forEach((c, i) => {
+            const tx = c.align === "right"
+                ? colX[i] + colW[i] - PADX
+                : colX[i] + PADX;
+            doc.text(c.label, tx, y0 + 6, { align: c.align });
+        });
+        /* Líneas verticales de columna */
+        cols.forEach((_, i) => {
+            if (i > 0) {
+                doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
+                doc.line(colX[i], y0, colX[i], y0 + HHEAD);
+            }
+        });
+        return y0 + HHEAD;
+    }
+
+    y = dibujarCabecera(y);
+
+    /* ---- Filas: 7 días (Lun → Dom) con cuadrícula completa ---- */
+    doc.setFont("helvetica", "normal").setFontSize(FS).setTextColor(0, 0, 0);
+
+    semana.forEach(dia => {
+        const esParada    = dia.estadoDia === "parada";
+        const sinRegistro = dia.estadoDia === "sin_registro";
+
+        let depTxt;
+        let rutaTxt;
+        if (sinRegistro) {
+            rutaTxt = "\u2014";
+            depTxt  = "\u2014";
+        } else if (esParada) {
+            rutaTxt = dia.ruta;
+            depTxt  = "PARADA";
+        } else {
+            rutaTxt = dia.ruta;
+            depTxt  = dia.deposito > 0 ? fmtMoneda(dia.deposito) : "\u2014";
+        }
+
+        const celdas = [dia.dia, dia.fecha, rutaTxt, depTxt];
+
+        if (y + HFILA > maxY()) {
+            doc.addPage();
+            y = dibujarCabecera(M.t);
+        }
+
+        /* Fondo de celda */
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
+
+        celdas.forEach((cell, i) => {
+            const x1 = colX[i];
+            const w1 = colW[i];
+            /* Borde exterior de cada celda (cuadrícula completa) */
+            doc.rect(x1, y, w1, HFILA);
+            /* Texto */
+            const tx = cols[i].align === "right"
+                ? x1 + w1 - PADX
+                : x1 + PADX;
+            doc.text(String(cell), tx, y + LH, { align: cols[i].align });
+        });
+
+        y += HFILA;
+    });
+
+    /* ---- Total depositado ---- */
+    y += 6;
+    if (y + 12 > maxY()) {
+        doc.addPage();
+        y = M.t;
+    }
+
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
+    doc.line(M.l, y, M.l + utilW, y);
+    y += 8;
+
+    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
+    doc.text(
+        "Total depositado: " + fmtMoneda(t.deposito),
+        pagAncho - M.r, y, { align: "right" }
+    );
+
+    /* ---- Pie de página ---- */
+    const nPag = doc.getNumberOfPages();
+    for (let i = 1; i <= nPag; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(120, 120, 120);
+        doc.text("Control Semanal de Unidades", M.l, pagAlto - 8);
+        doc.text("Página " + i + " de " + nPag, pagAncho - M.r, pagAlto - 8, { align: "right" });
+    }
+
+    doc.save("Reporte_Unidad_" + unidadId + "_" + hoyISO() + ".pdf");
+}
+
+/**
+ * Genera y descarga el PDF de la Tabla Resumida (todas las unidades).
+ * Formato: encabezado "Producción de las X unidades", rango de fechas,
+ * tabla 2 columnas (Unidad, Depósito total), fila TOTAL al final.
+ *
+ * @param {Array}  resumenUnidades — [{ unidad, deposito, produccion, ... }]
+ * @param {string} rangoFechas     — "DD/MM/AAAA hasta DD/MM/AAAA"
+ */
+function generarPDFTablaResumida(resumenUnidades, rangoFechas) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        mostrarModalAviso(
+            "Librería no disponible",
+            "La librería jsPDF no se cargó.\n\nVerifica tu conexión a internet y recarga la página."
+        );
+        return;
+    }
+    const { jsPDF } = window.jspdf;
+
+    if (!resumenUnidades || !resumenUnidades.length) {
+        mostrarModalAviso("Sin datos", "No hay unidades registradas para generar la tabla resumida.");
+        return;
+    }
+
+    const datos = resumenUnidades.slice().sort((a, b) => num(a.unidad) - num(b.unidad));
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const pagAncho = doc.internal.pageSize.getWidth();
+    const pagAlto  = doc.internal.pageSize.getHeight();
+    const M = { l: 18, r: 18, t: 22, b: 18 };
+    const utilW = pagAncho - M.l - M.r;
+    const maxY  = () => pagAlto - M.b;
+
+    /* ---- Encabezado (título y rango a la izquierda) ---- */
+    let y = M.t;
+    doc.setFont("helvetica", "bold").setFontSize(16).setTextColor(0, 0, 0);
+    doc.text("Producción de las " + datos.length + " unidades", M.l, y);
     y += 7;
 
-    /* ---------- Configuración de columnas ---------- */
-    const columnasDetallado = [
-        { t: "Día", w: 14, a: "l" },
-        { t: "Fecha", w: 17, a: "l" },
-        { t: "Ruta", w: 28, a: "l" },
-        { t: "Producción", w: 19, a: "r" },
-        { t: "Combustible", w: 19, a: "r" },
-        { t: "Gasto adicional", w: 24, a: "r" },
-        { t: "Depósito", w: 18, a: "r" },
-    ];
+    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(100, 100, 100);
+    doc.text(rangoFechas, M.l, y);
+    y += 10;
 
-    const columnasResumido = [
-        { t: "Día", w: 14, a: "l" },
-        { t: "Fecha", w: 17, a: "l" },
-        { t: "Ruta", w: 31, a: "l" },
-        { t: "Producción", w: 21, a: "r" },
-        { t: "Combustible", w: 21, a: "r" },
-        { t: "Gasto adicional", w: 22, a: "r" },
-        { t: "Depósito", w: 19, a: "r" },
-    ];
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.8);
+    doc.line(M.l, y, pagAncho - M.r, y);
+    y += 8;
 
-    const columnas = resumido ? columnasResumido : columnasDetallado;
+    /* ---- Tabla: 60% de ancho, alineada a la derecha ---- */
+    const tablaW  = utilW * 0.60;
+    const tablaX   = pagAncho - M.r - tablaW;          /* derecho */
+    const colPct  = [0.55, 0.45];
+    const colW    = colPct.map(p => tablaW * p);
+    const colX    = [tablaX, tablaX + colW[0]];
 
-    const filas = calc.map((r) => [
-        r.dia,
-        fmtFecha(r.fecha),
-        r.ruta || "-",
-        fmtMoneda(r.produccion),
-        fmtMoneda(r.combustible),
-        r.gastoAdicional && r.gastoAdicional.monto
-            ? `${fmtMoneda(r.gastoAdicional.monto)} - ${r.gastoAdicional.concepto}`
-            : "-",
-        fmtMoneda(r.deposito),
-    ]);
+    const PADX  = 3;
+    const LH    = 5;
+    const HHEAD = 9;
+    const HFILA = 10;
 
-    const t = totalesUnidad(unidadSeleccionada);
-    const filaTotales = [
-        "TOTAL SEMANAL",
-        "",
-        "",
-        fmtMoneda(t.produccion),
-        fmtMoneda(t.combustible),
-        fmtMoneda(t.gastoAdicional),
-        fmtMoneda(t.deposito),
-    ];
-
-    y = dibujarTablaPDF(doc, {
-        columnas,
-        filas,
-        filaTotales,
-        inicioY: y,
-        margenX: M.izq,
-        anchoUtil,
-        supContenido: M.sup + 10,
-        limiteY,
-        paleta: C,
-    });
-
-    /* ---------- Tabla consolidada de unidades ---------- */
-    y = agregarConsolidadoPDF(doc, { y, M, anchoPagina, anchoUtil, limiteY, paleta: C });
-
-    /* ---------- Pie de página en todas las hojas ---------- */
-    const totalPaginas = doc.getNumberOfPages();
-    for (let i = 1; i <= totalPaginas; i++) {
-        doc.setPage(i);
-        doc.setDrawColor(...C.borde).setLineWidth(0.3);
-        doc.line(M.izq, altoPagina - 11, anchoPagina - M.der, altoPagina - 11);
-        doc.setFont("helvetica", "normal").setFontSize(7.5).setTextColor(...C.gris);
-        doc.text("Control Semanal de Unidades", M.izq, altoPagina - 7);
-        doc.text(`Página ${i} de ${totalPaginas}`, anchoPagina - M.der, altoPagina - 7, {
-            align: "right",
-        });
+    /* ---- Cabecera de tabla (cuadrícula completa) ---- */
+    function dibujarCabecera(y0) {
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
+        doc.rect(tablaX, y0, tablaW, HHEAD);
+        doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(0, 0, 0);
+        doc.text("Unidad", colX[0] + PADX, y0 + 6);
+        doc.text("Depósito total", colX[1] + colW[1] - PADX, y0 + 6, { align: "right" });
+        /* Línea vertical separadora */
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
+        doc.line(colX[1], y0, colX[1], y0 + HHEAD);
+        return y0 + HHEAD;
     }
 
-    const tipo = resumido ? "Resumido" : "Detallado";
-    doc.save(`Reporte_${tipo}_Unidad_${unidadSeleccionada}_${hoyISO()}.pdf`);
-}
+    y = dibujarCabecera(y);
 
-function dibujarTablaPDF(doc, opts) {
-    const { columnas, filas, filaTotales, inicioY, margenX, anchoUtil, supContenido,
-        limiteY, paleta: C } = opts;
-
-    const sumaW = columnas.reduce((s, c) => s + c.w, 0);
-    const ws = columnas.map((c) => (c.w * anchoUtil) / sumaW);
-    const xs = [];
-    let acumulado = margenX;
-    ws.forEach((w) => {
-        xs.push(acumulado);
-        acumulado += w;
-    });
-
-    const padX = 1.8;
-    const padY = 1.7;
-    const lh = 3.6;
-    const fsCuerpo = 7.8;
-    const fsHead = 8.0;
-    const hHeader = 7.6;
-
-    function dibujarHeader(yActual) {
-        doc.setFillColor(...C.fondoHead);
-        doc.rect(margenX, yActual, anchoUtil, hHeader, "F");
-        doc.setFont("helvetica", "bold").setFontSize(fsHead).setTextColor(255, 255, 255);
-
-        columnas.forEach((c, i) => {
-            const tx = c.a === "r" ? xs[i] + ws[i] - padX : xs[i] + padX;
-            doc.text(c.t, tx, yActual + 5, { align: c.a === "r" ? "right" : "left" });
-        });
-        return yActual + hHeader;
-    }
-
-    doc.setFont("helvetica", "normal").setFontSize(fsCuerpo);
-    const medidasFilas = filas.map((f) => {
-        const lineas = f.map((cell, i) =>
-            doc.splitTextToSize(String(cell), ws[i] - padX * 2).slice(0, 2)
-        );
-        const maxLineas = Math.max(...lineas.map((l) => l.length));
-        return { lineas, h: maxLineas * lh + padY * 2 };
-    });
-
-    let y = inicioY;
-    y = dibujarHeader(y);
-
-    medidasFilas.forEach((m, idx) => {
-        if (y + m.h > limiteY()) {
+    /* ---- Filas (cuadrícula completa: rect por celda) ---- */
+    datos.forEach(d => {
+        if (y + HFILA > maxY()) {
             doc.addPage();
-            y = dibujarHeader(supContenido);
+            y = dibujarCabecera(M.t);
         }
 
-        if (idx % 2 === 1) {
-            doc.setFillColor(...C.zebra);
-            doc.rect(margenX, y, anchoUtil, m.h, "F");
-        }
+        doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(0, 0, 0);
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
 
-        doc.setFont("helvetica", "normal").setFontSize(fsCuerpo).setTextColor(...C.texto);
-        m.lineas.forEach((lineasCelula, i) => {
-            const alineacion = columnas[i].a === "r" ? "right" : "left";
-            const tx = alineacion === "right" ? xs[i] + ws[i] - padX : xs[i] + padX;
-            lineasCelula.forEach((ln, j) => {
-                doc.text(ln, tx, y + padY + 2.6 + j * lh, { align: alineacion });
-            });
-        });
+        /* Celda "Unidad" */
+        doc.rect(colX[0], y, colW[0], HFILA);
+        doc.text("Unidad " + d.unidad, colX[0] + PADX, y + LH);
 
-        doc.setDrawColor(...C.borde).setLineWidth(0.2);
-        doc.line(margenX, y + m.h, margenX + anchoUtil, y + m.h);
-        y += m.h;
+        /* Celda "Depósito total" */
+        doc.rect(colX[1], y, colW[1], HFILA);
+        doc.text(fmtMoneda(d.deposito), colX[1] + colW[1] - PADX, y + LH, { align: "right" });
+
+        y += HFILA;
     });
 
-    /* Fila de totales */
-    doc.setFont("helvetica", "normal").setFontSize(fsCuerpo);
-    const hTotales = lh + padY * 2;
-    if (y + hTotales > limiteY()) {
+    /* ---- Fila TOTAL (cuadrícula completa) ---- */
+    if (y + HFILA + 4 > maxY()) {
         doc.addPage();
-        y = dibujarHeader(supContenido);
+        y = M.t;
     }
 
-    doc.setFillColor(...C.totalesFondo);
-    doc.rect(margenX, y, anchoUtil, hTotales, "F");
-    doc.setDrawColor(...C.azul).setLineWidth(0.4);
-    doc.line(margenX, y, margenX + anchoUtil, y);
+    y += 1;
+    const depGlobal = datos.reduce((s, d) => s + d.deposito, 0);
 
-    doc.setFont("helvetica", "bold").setFontSize(fsCuerpo).setTextColor(...C.azulOscuro);
-    filaTotales.forEach((cell, i) => {
-        if (cell === "") return;
-        const tx = columnas[i].a === "r" ? xs[i] + ws[i] - padX : xs[i] + padX;
-        doc.text(String(cell), tx, y + padY + 2.6, { align: columnas[i].a === "r" ? "right" : "left" });
-    });
-    doc.line(margenX, y + hTotales, margenX + anchoUtil, y + hTotales);
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
+    /* Borde superior de TOTAL */
+    doc.rect(tablaX, y, tablaW, HFILA);
+    /* Separador interno */
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
+    doc.line(colX[1], y, colX[1], y + HFILA);
 
-    return y + hTotales + 8;
-}
+    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
+    doc.text("TOTAL", colX[0] + PADX, y + LH);
+    doc.text(fmtMoneda(depGlobal), colX[1] + colW[1] - PADX, y + LH, { align: "right" });
 
-function agregarConsolidadoPDF(doc, opts) {
-    const { y: yInicial, M, anchoPagina, anchoUtil, limiteY, paleta: C } = opts;
-
-    const datos = unidadesRegistradas()
-        .map((u) => ({ unidad: u, ...totalesUnidad(u) }))
-        .sort((a, b) => b.produccion - a.produccion);
-
-    const colW = [anchoUtil * 0.40, anchoUtil * 0.30, anchoUtil * 0.30];
-    const xCols = [M.izq, M.izq + colW[0], M.izq + colW[0] + colW[1]];
-    const hHead = 7.4;
-    const hFila = 6.8;
-    const hTotal = 7.6;
-
-    let y = yInicial;
-
-    const altoNecesario = 12 + hHead + datos.length * hFila + hTotal + 4;
-    if (y + altoNecesario > limiteY()) {
-        doc.addPage();
-        y = M.sup;
+    /* ---- Pie de página ---- */
+    const nPag = doc.getNumberOfPages();
+    for (let i = 1; i <= nPag; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(120, 120, 120);
+        doc.text("Control Semanal de Unidades", M.l, pagAlto - 8);
+        doc.text("Página " + i + " de " + nPag, pagAncho - M.r, pagAlto - 8, { align: "right" });
     }
 
-    doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...C.texto);
-    doc.text("CONSOLIDADO DE PRODUCCIÓN POR UNIDAD", M.izq, y, { charSpace: 0.5 });
-    y += 2.2;
-    doc.setDrawColor(...C.azul).setLineWidth(0.5);
-    doc.line(M.izq, y, anchoPagina - M.der, y);
-    y += 4.5;
-
-    doc.setFillColor(...C.fondoHead);
-    doc.rect(M.izq, y, anchoUtil, hHead, "F");
-    doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(255, 255, 255);
-    doc.text("Unidad", xCols[0] + 2, y + 4.9);
-    doc.text("Producción Total ($)", xCols[1] + colW[1] - 2, y + 4.9, { align: "right" });
-    doc.text("Depósito Total ($)", xCols[2] + colW[2] - 2, y + 4.9, { align: "right" });
-    y += hHead;
-
-    datos.forEach((d, idx) => {
-        if (idx % 2 === 1) {
-            doc.setFillColor(...C.zebra);
-            doc.rect(M.izq, y, anchoUtil, hFila, "F");
-        }
-        doc.setFont("helvetica", "normal").setFontSize(8.2).setTextColor(...C.texto);
-        doc.text(`Unidad ${d.unidad}`, xCols[0] + 2, y + 4.6);
-        doc.text(fmtMoneda(d.produccion), xCols[1] + colW[1] - 2, y + 4.6, { align: "right" });
-        doc.text(fmtMoneda(d.deposito), xCols[2] + colW[2] - 2, y + 4.6, { align: "right" });
-        doc.setDrawColor(...C.borde).setLineWidth(0.2);
-        doc.line(M.izq, y + hFila, M.izq + anchoUtil, y + hFila);
-        y += hFila;
-    });
-
-    doc.setFillColor(...C.verdeFondo);
-    doc.rect(M.izq, y, anchoUtil, hTotal, "F");
-    doc.setDrawColor(...C.verde).setLineWidth(0.4);
-    doc.line(M.izq, y, M.izq + anchoUtil, y);
-
-    const prodCombinado = datos.reduce((s, d) => s + d.produccion, 0);
-    const depCombinado = datos.reduce((s, d) => s + d.deposito, 0);
-
-    doc.setFont("helvetica", "bold").setFontSize(8.4).setTextColor(...C.verde);
-    doc.text("TOTAL COMBINADO", xCols[0] + 2, y + 5);
-    doc.text(fmtMoneda(prodCombinado), xCols[1] + colW[1] - 2, y + 5, { align: "right" });
-    doc.text(fmtMoneda(depCombinado), xCols[2] + colW[2] - 2, y + 5, { align: "right" });
-    doc.line(M.izq, y + hTotal, M.izq + anchoUtil, y + hTotal);
-
-    return y + hTotal;
+    doc.save("Tabla_Resumida_" + hoyISO() + ".pdf");
 }
 
-/* Vincula los 4 botones de la barra de reportes */
+/**
+ * Abre una ventana limpia con el reporte HTML y dispara la impresión
+ * nativa del navegador (Ctrl+P / Cmd+P).  El diseño usa los estilos
+ * @media print definidos en style.css.
+ */
+function imprimirReporteEnPantalla() {
+    const unitId = unidadSeleccionada;
+    const regs   = unitId ? registrosDeUnidad(unitId) : [];
+
+    if (!regs.length) {
+        mostrarModalAviso("Sin registros", "Selecciona una unidad con registros antes de imprimir.");
+        return;
+    }
+
+    const t      = totalesUnidad(unitId);
+    const semana = construirSemanaCompleta(regs);
+
+    /* ---- Construir filas de la tabla (7 días fijos) ---- */
+    let filasHTML = "";
+    semana.forEach(d => {
+        const esParada    = d.estadoDia === "parada";
+        const sinRegistro = d.estadoDia === "sin_registro";
+
+        let depTxt, rutaTxt;
+        if (sinRegistro) {
+            rutaTxt = "&mdash;";
+            depTxt  = "&mdash;";
+        } else if (esParada) {
+            rutaTxt = esc(d.ruta);
+            depTxt  = "<strong>PARADA</strong>";
+        } else {
+            rutaTxt = esc(d.ruta);
+            depTxt  = d.deposito > 0 ? fmtMoneda(d.deposito) : "&mdash;";
+        }
+
+        filasHTML +=
+            "<tr>" +
+                "<td>" + esc(d.dia) + "</td>" +
+                "<td>" + d.fecha + "</td>" +
+                "<td>" + rutaTxt + "</td>" +
+                "<td class=\"num\">" + depTxt + "</td>" +
+            "</tr>";
+    });
+
+    /* ---- Resumen de todas las unidades (alineado a la derecha, 60%) ---- */
+    const resumen = unidadesRegistradas()
+        .map(u => ({ unidad: u, ...totalesUnidad(u) }))
+        .sort((a, b) => num(a.unidad) - num(b.unidad));
+
+    let resumenFilas = "";
+    resumen.forEach(d => {
+        resumenFilas +=
+            "<tr>" +
+                "<td>Unidad " + esc(d.unidad) + "</td>" +
+                "<td class=\"num\">" + fmtMoneda(d.deposito) + "</td>" +
+            "</tr>";
+    });
+    const depGlobal = resumen.reduce((s, d) => s + d.deposito, 0);
+    const todasFechas = registros.map(r => r.fecha).sort();
+    const rangoFechas = fmtFecha(todasFechas[0]) + " hasta " + fmtFecha(todasFechas[todasFechas.length - 1]);
+
+    /* ---- HTML completo de la ventana de impresión ---- */
+    const html = "<!DOCTYPE html><html lang=\"es\"><head>" +
+        "<meta charset=\"UTF-8\">" +
+        "<title>Reporte Unidad " + esc(unitId) + "</title>" +
+        "<style>" +
+            "*{box-sizing:border-box;margin:0;padding:0}" +
+            "body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:24px}" +
+            "h1{font-size:22px;margin-bottom:12px}" +
+            "hr.sep{border:none;border-top:2px solid #000;margin-bottom:16px}" +
+            "table{border-collapse:collapse}" +
+            "table.main{width:100%;margin-bottom:8px}" +
+            "th,td{border:1px solid #000;padding:8px 12px;font-size:11px;text-align:left}" +
+            "th{font-weight:bold;background:#fff}" +
+            "td.num{text-align:right}" +
+            ".total-line{margin-top:12px;text-align:right;font-weight:bold;font-size:12px}" +
+            ".footer{margin-top:32px;font-size:7px;color:#888;display:flex;justify-content:space-between}" +
+            ".resumen-section{margin-top:28px}" +
+            ".resumen-section h2{font-size:14px;margin-bottom:6px}" +
+            ".resumen-section .rango{font-size:10px;color:#666;margin-bottom:10px}" +
+            "table.resumen{width:60%;margin-left:auto;margin-right:0}" +
+            "@media print{" +
+                "@page{size:A4 portrait;margin:15mm 12mm}" +
+                "body{padding:0;background:#fff}" +
+                "table,thead,tbody,tfoot,tr,td,th{page-break-inside:avoid}" +
+                "thead{display:table-header-group}" +
+            "}" +
+        "</style>" +
+        "</head><body>" +
+        "<h1>UNIDAD " + esc(unitId) + "</h1>" +
+        "<hr class=\"sep\">" +
+        "<table class=\"main\">" +
+            "<thead><tr>" +
+                "<th>Día</th><th>Fecha</th><th>Ruta</th><th>Depósito</th>" +
+            "</tr></thead>" +
+            "<tbody>" + filasHTML + "</tbody>" +
+        "</table>" +
+        "<div class=\"total-line\">Total depositado: " + fmtMoneda(t.deposito) + "</div>" +
+        "<div class=\"resumen-section\">" +
+            "<h2>Producción de las " + resumen.length + " unidades</h2>" +
+            "<div class=\"rango\">" + rangoFechas + "</div>" +
+            "<table class=\"resumen\">" +
+                "<thead><tr><th>Unidad</th><th>Depósito total</th></tr></thead>" +
+                "<tbody>" + resumenFilas +
+                    "<tr><td><strong>TOTAL</strong></td><td class=\"num\"><strong>" + fmtMoneda(depGlobal) + "</strong></td></tr>" +
+                "</tbody>" +
+            "</table>" +
+        "</div>" +
+        "<div class=\"footer\">" +
+            "<span>Control Semanal de Unidades</span>" +
+            "<span>Generado: " + ahoraTexto() + "</span>" +
+        "</div>" +
+        "</body></html>";
+
+    const win = window.open("", "_blank", "width=800,height=600");
+    if (!win) {
+        mostrarModalAviso("Ventana bloqueada", "El navegador bloqueó la ventana de impresión.\n\nPermite las ventanas emergentes para este sitio.");
+        return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+}
+
+/* =====================================================
+   VINCULACIÓN DE BOTONES
+   ===================================================== */
+
 function vincularBarraReportes() {
+
+    /* ---- Reporte semanal (PDF) ---- */
     on("downloadDetailedPdfBtn", "click", () => {
-        console.log("[clic] Botón «Reporte semanal»");
         ejecutarAccionReporte("generar el reporte semanal", async () => {
             if (!(await prepararReporte())) return;
-            exportarPDF(false);
+            const calc = registrosDeUnidad(unidadSeleccionada);
+            generarPDFReporteSemanal(unidadSeleccionada, calc);
         });
     });
 
+    /* ---- Tabla resumida (PDF) ---- */
     on("downloadSummaryPdfBtn", "click", () => {
-        console.log("[clic] Botón «Tabla resumida»");
         ejecutarAccionReporte("generar la tabla resumida", async () => {
             if (!(await prepararReporte())) return;
-            exportarPDF(true);
+            const resumen = unidadesRegistradas()
+                .map(u => ({ unidad: u, ...totalesUnidad(u) }));
+            const fechas  = registros.map(r => r.fecha).sort();
+            const rango   = fmtFecha(fechas[0]) + " hasta " + fmtFecha(fechas[fechas.length - 1]);
+            generarPDFTablaResumida(resumen, rango);
         });
     });
 
+    /* ---- Imprimir (ventana limpia) ---- */
     on("printReportBtn", "click", () => {
-        console.log("[clic] Botón «Imprimir»");
         ejecutarAccionReporte("imprimir el reporte", async () => {
             if (!(await prepararReporte())) return;
-            window.print();
+            imprimirReporteEnPantalla();
         });
     });
 
+    /* ---- Nuevo registro ---- */
     on("newReportBtn", "click", () => {
-        console.log("[clic] Botón «Nuevo registro»");
         ejecutarAccionReporte("preparar el nuevo registro", async () => {
             unidadSeleccionada = null;
             reiniciarFormulario(false);
             renderTodo();
-
             const panelFormulario = document.querySelector(".form-panel");
             panelFormulario?.scrollIntoView({ behavior: "smooth", block: "start" });
-
             const primerCampo = $id("numeroUnidad");
             primerCampo.focus();
             primerCampo.select();
