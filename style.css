@@ -727,8 +727,156 @@ textarea {
 
 
 /* =====================================================
-   PARADA
+   PARADA — Bloque alternativo al formulario de producción
 ===================================================== */
+
+.parada-block {
+
+    margin-top:
+        0;
+
+    padding:
+        0;
+
+}
+
+
+/* Alerta naranja informativa */
+.parada-alert {
+
+    display:
+        flex;
+
+    gap:
+        14px;
+
+    align-items:
+        flex-start;
+
+    padding:
+        18px;
+
+    border-radius:
+        15px;
+
+    background:
+        #fff8ec;
+
+    border:
+        1px solid #ffe3c4;
+
+}
+
+
+.parada-alert-icon {
+
+    flex:
+        none;
+
+    width:
+        34px;
+
+    height:
+        34px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        50%;
+
+    background:
+        #f97316;
+
+    color:
+        white;
+
+    font-weight:
+        800;
+
+    font-size:
+        18px;
+
+    line-height:
+        1;
+
+}
+
+
+.parada-alert strong {
+
+    display:
+        block;
+
+    margin:
+        0 0 4px;
+
+    color:
+        #172033;
+
+    font-size:
+        14px;
+
+}
+
+
+.parada-alert p {
+
+    margin:
+        0;
+
+    color:
+        #64748b;
+
+    font-size:
+        13px;
+
+    line-height:
+        1.5;
+
+}
+
+
+/* Tarjeta de administración pendiente */
+.admin-pending-card {
+
+    margin-top:
+        18px;
+
+    padding:
+        20px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        15px;
+
+    background:
+        #fbfdff;
+
+}
+
+
+.admin-pending-card h4 {
+
+    margin:
+        0 0 14px;
+
+    font-size:
+        14px;
+
+    font-weight:
+        700;
+
+    color:
+        #334155;
+
+}
+
 
 .stop-message {
 
@@ -2133,6 +2281,10 @@ tfoot td {
     .eyebrow,
     .stop-message,
     .stop-icon,
+    .parada-block,
+    .parada-alert,
+    .parada-alert-icon,
+    .admin-pending-card,
     .summary-card,
     .weekly-summary,
     .preview-meta,

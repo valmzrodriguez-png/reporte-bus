@@ -164,7 +164,10 @@
 
 
 <!-- =====================================================
-     PRODUCCIÓN
+     PRODUCCIÓN — Sección condicional
+     Se muestra cuando "Estado del día" = "Día con producción".
+     Se oculta y se reemplaza por el bloque de Parada
+     cuando el usuario selecciona "Parada".
 ====================================================== -->
 
 <div
@@ -193,7 +196,7 @@
   </div>
 
 
-<div class="form-grid calculo-grid">
+<div id="produccionCampos" class="form-grid calculo-grid">
 
 
 <!-- ESTADO DEL DÍA -->
@@ -483,6 +486,81 @@
   </div>
 
 </div>
+
+</div>
+
+
+<!-- =====================================================
+     BLOQUE PARADA — Se muestra cuando "Estado del día" = "Parada"
+     Reemplaza visualmente la grilla de producción.
+====================================================== -->
+
+<div
+  id="paradaBlock"
+  class="parada-block hidden"
+>
+
+  <!-- Banner informativo -->
+  <div class="parada-alert">
+
+    <div class="parada-alert-icon">!</div>
+
+    <div>
+      <strong>Día marcado como PARADA</strong>
+      <p>
+        Este día no genera producción. La administración indicada se descontará del siguiente día con producción.
+      </p>
+    </div>
+
+  </div>
+
+
+  <!-- Tarjeta de administración pendiente -->
+  <div class="admin-pending-card">
+
+    <h4>
+      Gasto de administración de la parada
+    </h4>
+
+    <label class="field field-wide">
+
+      <span>
+        Administración de la parada ($)
+      </span>
+
+      <div class="money-input">
+
+        <span>$</span>
+
+        <input
+          type="number"
+          id="adminParada"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+        >
+
+      </div>
+
+    </label>
+
+  </div>
+
+
+  <!-- Observaciones -->
+  <div class="field field-wide">
+
+    <span>
+      Observaciones
+    </span>
+
+    <textarea
+      id="obsParada"
+      rows="3"
+      placeholder="Escribe alguna observación del día..."
+    ></textarea>
+
+  </div>
 
 </div>
 

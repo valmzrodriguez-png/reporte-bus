@@ -401,12 +401,17 @@ function actualizarCamposGasto() {
 
 function calcularValoresFormulario() {
     /* Solo los días con producción aportan montos de ingreso;
-       en Parada quedan en $0.00 */
+       en Parada el admin viene del campo dedicado */
     const enProduccion = estadoDiaSelect.value === "produccion";
 
     const produccion = enProduccion ? num($id("produccionTotal").value) : 0;
     const combustible = enProduccion ? num($id("combustible").value) : 0;
-    const administracion = enProduccion ? num($id("administracion").value) : 0;
+
+    /* En parada, la administración viene del campo "adminParada" */
+    const administracion = enProduccion
+        ? num($id("administracion").value)
+        : num($id("adminParada").value);
+
     const alimentacionLimpieza = enProduccion
         ? num($id("alimentacionLimpieza").value)
         : 0;
@@ -420,7 +425,9 @@ function calcularValoresFormulario() {
 
     /* Los gastos adicionales aplican también en días de
        Parada (ej. reparaciones); el Depósito los refleja */
-    const sumaGastos = leerGastosFormulario().reduce((s, g) => s + g.monto, 0);
+    const sumaGastos = enProduccion
+        ? leerGastosFormulario().reduce((s, g) => s + g.monto, 0)
+        : 0;
 
     /* Depósito ($) = Producción − Combustible − Administración
        − Alimentación/Limpieza − Conductor ($) − Gastos adicionales */
@@ -440,24 +447,35 @@ function calcularValoresFormulario() {
     };
 }
 
-/* Estado "Parada": deshabilita los campos de producción e
-   ingresos y pone todo en $0.00. Los gastos adicionales
-   siguen disponibles y el Depósito los refleja solos */
+/* Estado "Parada": oculta la grilla de producción y muestra
+   el bloque alternativo (alerta + admin parada + observaciones) */
 function aplicarEstadoDia() {
     const enProduccion = estadoDiaSelect.value === "produccion";
-    const camposMonto = ["produccionTotal", "combustible", "administracion",
-        "alimentacionLimpieza", "conductorPorcentaje"];
 
-    camposMonto.forEach((idCampo) => {
-        const campo = $id(idCampo);
-        if (!enProduccion) campo.value = "";
-        campo.disabled = !enProduccion;
-    });
+    /* Alterna visibilidad: producción vs parada */
+    $id("produccionCampos").classList.toggle("hidden", !enProduccion);
+    $id("paradaBlock").classList.toggle("hidden", enProduccion);
 
-    /* Atenúa visualmente el bloque de montos */
-    $id("productionFields").classList.toggle("dia-inactivo", !enProduccion);
+    /* Limpia y deshabilita los campos cuando no aplica */
+    if (!enProduccion) {
+        ["produccionTotal", "combustible", "administracion",
+            "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
+            $id(idCampo).value = "";
+            $id(idCampo).disabled = true;
+        });
+        tieneGastoSelect.value = "no";
+        actualizarCamposGasto();
+    } else {
+        ["produccionTotal", "combustible", "administracion",
+            "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
+            $id(idCampo).disabled = false;
+        });
+        /* Limpia campos de parada al volver a producción */
+        $id("adminParada").value = "";
+        $id("obsParada").value = "";
+    }
 
-    actualizarCamposGasto();
+    calcularEnVivo();
 }
 
 function calcularEnVivo() {
@@ -504,6 +522,9 @@ $id("gastosLista").addEventListener("click", (e) => {
     "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
         $id(idCampo).addEventListener("input", calcularEnVivo);
     });
+
+/* Campo de administración de parada */
+on("adminParada", "input", calcularEnVivo);
 
 let guardando = false;
 
@@ -588,6 +609,9 @@ function reiniciarFormulario(limpiarTodo) {
     diaSemanaInput.value = nombreDia(fechaInput.value);
     estadoDiaSelect.value = "produccion";
     tieneGastoSelect.value = "no";
+    $id("adminParada").value = "";
+    $id("obsParada").value = "";
+    aplicarEstadoDia();
     actualizarCamposGasto();
     calcularEnVivo();
 }
