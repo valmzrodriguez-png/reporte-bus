@@ -1435,7 +1435,7 @@ textarea {
         17px;
 
     background:
-        #f6f9ff;
+        #fafafa;
 
 }
 
@@ -1463,7 +1463,7 @@ textarea {
         6px;
 
     color:
-        #1745b5;
+        #111;
 
     font-size:
         27px;
@@ -1477,10 +1477,10 @@ textarea {
 .deposit-card {
 
     background:
-        var(--green-light);
+        #f2f2f2;
 
     border-color:
-        #c9ecd8;
+        #ccc;
 
 }
 
@@ -1488,7 +1488,7 @@ textarea {
 .deposit-card strong {
 
     color:
-        var(--green);
+        #000;
 
 }
 
@@ -2218,6 +2218,108 @@ tfoot td {
 
     }
 
+
+    /* ---- Bloques diarios responsive ---- */
+
+    .day-block-header {
+
+        flex-direction:
+            column;
+
+        align-items:
+            flex-start;
+
+        gap:
+            8px;
+
+        padding:
+            12px 14px;
+
+    }
+
+
+    .day-block-body {
+
+        padding:
+            12px 14px 16px;
+
+    }
+
+
+    .day-detail-row {
+
+        flex-wrap:
+            wrap;
+
+        gap:
+            4px;
+
+    }
+
+
+    .day-detail-label {
+
+        font-size:
+            12px;
+
+    }
+
+
+    .day-detail-value {
+
+        font-size:
+            12px;
+
+    }
+
+
+    .day-deposito-valor {
+
+        font-size:
+            16px;
+
+    }
+
+
+    .day-detail-ingreso,
+
+    .day-detail-subtotal,
+
+    .day-detail-pendiente,
+
+    .day-detail-info,
+
+    .day-detail-parada-note {
+
+        margin:
+            0 -6px;
+
+    }
+
+
+    .day-detail-deposito {
+
+        margin:
+            4px -6px 0;
+
+    }
+
+
+    .weekly-totals {
+
+        padding:
+            14px 16px;
+
+    }
+
+
+    .weekly-totals-deposito {
+
+        margin:
+            4px -8px -4px;
+
+    }
+
 }
 
 
@@ -2288,6 +2390,7 @@ tfoot td {
     .summary-card,
     .weekly-summary,
     .preview-meta,
+    .week-selector,
     .btn-add-gasto,
     .btn-remove-gasto {
 
@@ -2386,7 +2489,357 @@ tfoot td {
     }
 
 
-    /* Tabla principal — estilo formal y limpio */
+    /* ---- Bloques diarios en impresión ---- */
+
+    .daily-blocks-container {
+
+        display:
+            block;
+
+    }
+
+
+    .day-block {
+
+        page-break-inside:
+            avoid;
+
+        margin-bottom:
+            12px;
+
+        border:
+            1px solid #999;
+
+        border-radius:
+            4px;
+
+        overflow:
+            hidden;
+
+    }
+
+
+    .day-block-header {
+
+        background:
+            #f0f0f0 !important;
+
+        padding:
+            6px 10px;
+
+        border-bottom:
+            1px solid #999;
+
+    }
+
+
+    .day-block-name {
+
+        font-size:
+            12px;
+
+        color:
+            #000;
+
+    }
+
+
+    .day-block-date {
+
+        font-size:
+            11px;
+
+        color:
+            #555;
+
+    }
+
+
+    .day-block-badge {
+
+        font-size:
+            8px;
+
+        padding:
+            2px 6px;
+
+    }
+
+
+.day-badge-produccion {
+
+    background:
+        #eaf9f0 !important;
+
+    color:
+        #07883f !important;
+
+}
+
+
+.day-badge-parada {
+
+    background:
+        #fee2e2 !important;
+
+    color:
+        #b91c1c !important;
+
+}
+
+
+    .day-badge-sin-registro {
+
+        background:
+            #f0f0f0;
+
+        color:
+            #666;
+
+    }
+
+
+    .day-block-body {
+
+        padding:
+            8px 10px 10px;
+
+    }
+
+
+    .day-detail-row {
+
+        padding:
+            3px 0;
+
+        border-bottom:
+            1px solid #eee;
+
+    }
+
+
+    .day-detail-label {
+
+        font-size:
+            10px;
+
+        color:
+            #000;
+
+    }
+
+
+    .day-detail-value {
+
+        font-size:
+            10px;
+
+        color:
+            #000;
+
+    }
+
+
+    .day-detail-positivo {
+
+        color:
+            #000;
+
+        font-size:
+            12px;
+
+    }
+
+
+    .day-detail-negativo {
+
+        color:
+            #333;
+
+    }
+
+
+    .day-detail-ingreso,
+
+    .day-detail-subtotal,
+
+    .day-detail-pendiente,
+
+    .day-detail-info,
+
+    .day-detail-parada-note {
+
+        background:
+            transparent !important;
+
+        margin:
+            0;
+
+        padding:
+            4px 0;
+
+        border-radius:
+            0;
+
+    }
+
+
+    .day-detail-deposito {
+
+        background:
+            #f0f0f0 !important;
+
+        border:
+            none;
+
+        border-top:
+            2px solid #000;
+
+        margin:
+            4px 0 0;
+
+        padding:
+            6px 0;
+
+        border-radius:
+            0;
+
+    }
+
+
+    .day-detail-deposito .day-detail-label {
+
+        font-size:
+            12px;
+
+        color:
+            #000;
+
+    }
+
+
+    .day-deposito-valor {
+
+        font-size:
+            14px;
+
+        color:
+            #000;
+
+    }
+
+
+    .day-detail-divider {
+
+        border-top:
+            1px solid #ccc;
+
+    }
+
+
+    .day-block-empty {
+
+        font-size:
+        10px;
+
+    }
+
+
+    /* ---- Totales semanales en impresión ---- */
+
+    .weekly-totals {
+
+        page-break-inside:
+            avoid;
+
+        margin-top:
+            10px;
+
+        padding:
+            10px;
+
+        border:
+            1px solid #000;
+
+        border-radius:
+            0;
+
+    }
+
+
+    .weekly-totals-row {
+
+        padding:
+            4px 0;
+
+        border-bottom:
+            1px solid #ddd;
+
+    }
+
+
+    .weekly-totals-row span {
+
+        font-size:
+            10px;
+
+        color:
+            #000;
+
+    }
+
+
+    .weekly-totals-row strong {
+
+        font-size:
+            12px;
+
+        color:
+            #000;
+
+    }
+
+
+    .weekly-totals-deposito {
+
+        background:
+            #f0f0f0 !important;
+
+        border:
+            2px solid #000;
+
+        margin:
+            4px 0 0;
+
+        padding:
+            6px 0;
+
+    }
+
+
+    .weekly-totals-deposito span {
+
+        font-size:
+            12px;
+
+        color:
+            #000;
+
+    }
+
+
+    .weekly-totals-deposito strong {
+
+        font-size:
+            14px;
+
+        color:
+            #000;
+
+    }
+
+
+    /* ---- Tabla resumen unidades (se mantiene) ---- */
 
     .table-container {
 
@@ -2539,12 +2992,10 @@ tfoot td {
     }
 
 
-    /* Evitar cortes de tabla */
+    /* Evitar cortes */
 
-    table,
-    tr,
-    td,
-    th {
+    .day-block,
+    .weekly-totals {
 
         page-break-inside:
             avoid;
@@ -3055,27 +3506,12 @@ tfoot td {
 }
 
 
-#weeklyTable th:nth-child(n+4),
-#weeklyTable td:nth-child(n+4),
-#weeklyTable tfoot td:not(.total-label) {
-
-    text-align:
-        right;
-
-}
+/* Referencias a la tabla semanal eliminadas:
+   el reporte ahora usa bloques diarios (.day-block)
+   en lugar de una tabla única. */
 
 
-#weeklyTable td,
-#weeklyTable th {
-
-    font-variant-numeric:
-        tabular-nums;
-
-}
-
-
-/* La columna Ruta se trunca con elipsis para que la
-    tabla nunca desborde el panel del reporte */
+/* La columna Ruta se trunca con elipsis en la tabla de historial */
 
 #weeklyTable td:nth-child(3) {
 
@@ -3114,6 +3550,710 @@ tbody tr:hover td:first-child {
 
     box-shadow:
         inset 3px 0 0 var(--blue);
+
+}
+
+
+/* =====================================================
+   BLOQUES DIARIOS — Reporte detallado
+====================================================== */
+
+.daily-blocks-container {
+
+    display:
+        grid;
+
+    gap:
+        16px;
+
+}
+
+
+.day-block {
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        16px;
+
+    overflow:
+        hidden;
+
+    background:
+        var(--white);
+
+    page-break-inside:
+        avoid;
+
+}
+
+
+.day-block-empty-state {
+
+    border-style:
+        dashed;
+
+    opacity:
+        .6;
+
+}
+
+
+.day-block-header {
+
+    display:
+        flex;
+
+    justify-content:
+        space-between;
+
+    align-items:
+        center;
+
+    gap:
+        12px;
+
+    padding:
+        14px 20px;
+
+    background:
+        #f7f7f7;
+
+    border-bottom:
+        1px solid var(--border);
+
+}
+
+
+.day-block-title-row {
+
+    display:
+        flex;
+
+    align-items:
+        baseline;
+
+    gap:
+        10px;
+
+}
+
+
+.day-block-name {
+
+    font-size:
+        16px;
+
+    font-weight:
+        800;
+
+    color:
+        var(--text);
+
+}
+
+
+.day-block-date {
+
+    font-size:
+        13px;
+
+    font-weight:
+        600;
+
+    color:
+        var(--muted);
+
+}
+
+
+.day-block-badge {
+
+    flex:
+        none;
+
+    padding:
+        4px 12px;
+
+    border-radius:
+        999px;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        .06em;
+
+    text-transform:
+        uppercase;
+
+}
+
+
+.day-badge-produccion {
+
+    background:
+        #eaf9f0;
+
+    color:
+        #07883f;
+
+}
+
+
+.day-badge-parada {
+
+    background:
+        #fee2e2;
+
+    color:
+        #b91c1c;
+
+}
+
+
+.day-badge-sin-registro {
+
+    background:
+        #f2f2f2;
+
+    color:
+        #666;
+
+}
+
+
+.day-block-body {
+
+    padding:
+        16px 20px 20px;
+
+}
+
+
+.day-detail-grid {
+
+    display:
+        grid;
+
+    gap:
+        0;
+
+}
+
+
+.day-detail-row {
+
+    display:
+        flex;
+
+    justify-content:
+        space-between;
+
+    align-items:
+        center;
+
+    padding:
+        8px 0;
+
+    border-bottom:
+        1px solid #ececec;
+
+}
+
+
+.day-detail-row:last-child {
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-detail-label {
+
+    font-size:
+        13.5px;
+
+    font-weight:
+        700;
+
+    color:
+        #333;
+
+}
+
+
+.day-detail-value {
+
+    font-size:
+        13.5px;
+
+    font-weight:
+        800;
+
+    font-variant-numeric:
+        tabular-nums;
+
+    text-align:
+        right;
+
+    color:
+        #222;
+
+}
+
+
+.day-detail-positivo {
+
+    color:
+        #222;
+
+    font-size:
+        15px;
+
+}
+
+
+.day-detail-negativo {
+
+    color:
+        #222;
+
+}
+
+
+.day-detail-ruta .day-detail-value {
+
+    color:
+        var(--text);
+
+    font-weight:
+        800;
+
+}
+
+
+.day-detail-ingreso {
+
+    background:
+        #f7f7f7;
+
+    margin:
+        0 -8px;
+
+    padding:
+        10px 8px;
+
+    border-radius:
+        8px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-detail-ingreso .day-detail-label {
+
+    font-weight:
+        800;
+
+    color:
+        #111;
+
+}
+
+
+.day-detail-divider {
+
+    border-top:
+        1px solid #e2e8f0;
+
+    margin:
+        4px 0;
+
+}
+
+
+.day-detail-subtotal {
+
+    background:
+        #f2f2f2;
+
+    margin:
+        0 -8px;
+
+    padding:
+        10px 8px;
+
+    border-radius:
+        8px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-detail-subtotal .day-detail-label {
+
+    font-weight:
+        800;
+
+    color:
+        #111;
+
+}
+
+
+.day-detail-deposito {
+
+    background:
+        #f7f7f7;
+
+    margin:
+        4px -8px 0;
+
+    padding:
+        12px 8px;
+
+    border-bottom:
+        none;
+
+    border-top:
+        2px solid #000;
+
+    border-left:
+        none;
+
+    border-right:
+        none;
+
+}
+
+
+.day-detail-deposito .day-detail-label {
+
+    font-size:
+        15px;
+
+    font-weight:
+        800;
+
+    color:
+        #000;
+
+    letter-spacing:
+        .04em;
+
+}
+
+
+.day-deposito-valor {
+
+    font-size:
+        18px;
+
+    font-weight:
+        900;
+
+    color:
+        #000;
+
+}
+
+
+.day-detail-pendiente {
+
+    background:
+        #f5f5f5;
+
+    margin:
+        0 -8px;
+
+    padding:
+        8px 8px;
+
+    border-radius:
+        6px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-detail-pendiente .day-detail-label {
+
+    color:
+        #333;
+
+    font-style:
+        italic;
+
+}
+
+
+.day-detail-info {
+
+    background:
+        #f7f7f7;
+
+    margin:
+        0 -8px;
+
+    padding:
+        6px 8px;
+
+    border-radius:
+        6px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-info-text {
+
+    font-size:
+        11px;
+
+    font-weight:
+        600;
+
+    color:
+        #555;
+
+    font-style:
+        italic;
+
+}
+
+
+.day-parada-text {
+
+    color:
+        #333;
+
+    font-weight:
+        800;
+
+}
+
+
+.day-detail-parada-note {
+
+    background:
+        #f5f5f5;
+
+    margin:
+        0 -8px;
+
+    padding:
+        8px 8px;
+
+    border-radius:
+        6px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-observaciones {
+
+    margin:
+        10px -8px -8px;
+
+    padding:
+        8px 8px;
+
+    background:
+
+        #fafafa;
+
+    border-top:
+        1px dashed #ccc;
+
+    border-bottom:
+        none;
+
+}
+
+
+.day-observaciones .day-detail-label {
+
+    font-style:
+        italic;
+
+    font-weight:
+        700;
+
+    color:
+        #555;
+
+}
+
+
+.day-observaciones .day-detail-value {
+
+    font-style:
+        italic;
+
+    font-weight:
+        600;
+
+    color:
+        #333;
+
+}
+
+
+.day-block-empty {
+
+    color:
+        var(--muted);
+
+    font-style:
+        italic;
+
+    font-size:
+        13px;
+
+    padding:
+        8px 0;
+
+}
+
+
+/* =====================================================
+   TOTALES SEMANALES — debajo de los bloques diarios
+====================================================== */
+
+.weekly-totals {
+
+    margin-top:
+        20px;
+
+    padding:
+        20px 24px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        16px;
+
+    background:
+        #fafafa;
+
+}
+
+
+.weekly-totals-row {
+
+    display:
+        flex;
+
+    justify-content:
+        space-between;
+
+    align-items:
+        center;
+
+    padding:
+        8px 0;
+
+    border-bottom:
+        1px solid #ececec;
+
+}
+
+
+.weekly-totals-row:last-child {
+
+    border-bottom:
+        none;
+
+}
+
+
+.weekly-totals-row span {
+
+    font-size:
+        13px;
+
+    font-weight:
+        700;
+
+    color:
+        #333;
+
+    letter-spacing:
+        .03em;
+
+}
+
+
+.weekly-totals-row strong {
+
+    font-size:
+        15px;
+
+    font-variant-numeric:
+        tabular-nums;
+
+}
+
+
+.weekly-totals-deposito {
+
+    background:
+        #f2f2f2;
+
+    margin:
+        4px -12px -8px;
+
+    padding:
+        12px 12px;
+
+    border-radius:
+        0 0 12px 12px;
+
+    border-bottom:
+        none;
+
+}
+
+
+.weekly-totals-deposito span {
+
+    font-size:
+        15px;
+
+    font-weight:
+        800;
+
+    color:
+        #111;
+
+}
+
+
+.weekly-totals-deposito strong {
+
+    font-size:
+        20px;
+
+    color:
+        #000;
 
 }
 
@@ -3222,33 +4362,10 @@ tbody tr:hover td:first-child {
 }
 
 
-/* Reporte semanal: bandeja de entrada */
-
-#weeklyTableBody td.empty-state {
-
-    display:
-        table-cell;
-
-}
+/* Referencia a la tabla semanal eliminada:
+   el reporte ahora usa bloques diarios (.day-block). */
 
 
-#weeklyTableBody .empty-state::before {
-
-    display:
-        block;
-
-    margin:
-        0 auto;
-
-    -webkit-mask-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
-
-    mask-image:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
-
-}
-
-          
 /* Historial: reloj */
 
 #historyList .empty-state::before {
@@ -4085,5 +5202,344 @@ tbody tr:hover td:first-child {
             10px;
 
     }
+
+}
+
+
+/* =====================================================
+   CONTRASTE DE TEXTO DEL REPORTE — texto en negro o
+   gris muy oscuro (evita valores translúcidos/opacos)
+===================================================== */
+
+/* Etiquetas descriptivas y notas del reporte */
+.preview-meta p,
+.summary-card span,
+.day-block-date,
+.day-block-empty,
+.day-detail-label,
+.day-detail-pendiente .day-detail-label,
+.day-parada-text,
+.day-info-text,
+.day-observaciones .day-detail-label,
+.day-observaciones .day-detail-value {
+
+    color:
+        #1a1a1a;
+
+}
+
+/* Montos del reporte */
+.day-detail-value,
+.day-detail-positivo,
+.day-detail-negativo {
+
+    color:
+        #000;
+
+}
+
+/* Totales del reporte */
+.summary-card strong,
+.weekly-totals-row strong {
+
+    color:
+        #000;
+
+}
+
+
+/* =====================================================
+   PERIODO EN ENCABEZADO — línea bajo "Unidad: XX"
+===================================================== */
+
+.preview-periodo {
+
+    margin:
+        6px 0 0;
+
+    font-size:
+        13px;
+
+    font-weight:
+        700;
+
+    color:
+        #000;
+
+    letter-spacing:
+        .01em;
+
+}
+
+
+/* =====================================================
+   SELECTOR DE SEMANA
+===================================================== */
+
+.week-selector {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    margin:
+        18px 0 0;
+
+    padding:
+        12px 16px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        12px;
+
+    background:
+        #fff;
+
+}
+
+.week-selector label {
+
+    flex:
+        none;
+
+    font-size:
+        11px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        .08em;
+
+    text-transform:
+        uppercase;
+
+    color:
+        #000;
+
+}
+
+.week-selector select {
+
+    flex:
+        1;
+
+    min-width:
+        0;
+
+    padding:
+        8px 10px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        8px;
+
+    background:
+        #fff;
+
+    color:
+        #000;
+
+    font-size:
+        13px;
+
+    font-weight:
+        600;
+
+}
+
+
+/* =====================================================
+   OBSERVACIONES DE LA SEMANA — al final del reporte
+===================================================== */
+
+.reporte-observaciones {
+
+    margin-top:
+        18px;
+
+    padding:
+        16px 20px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        16px;
+
+    background:
+        #fafafa;
+
+}
+
+.reporte-observaciones .obs-title {
+
+    margin:
+        0 0 10px;
+
+    font-size:
+        12px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        .06em;
+
+    text-transform:
+        uppercase;
+
+    color:
+        #000;
+
+}
+
+.obs-item {
+
+    display:
+        block;
+
+    padding:
+        8px 0;
+
+    border-bottom:
+        1px solid #ececec;
+
+}
+
+.obs-item:last-child {
+
+    border-bottom:
+        none;
+
+}
+
+.obs-dia {
+
+    display:
+        block;
+
+    font-size:
+        11.5px;
+
+    font-weight:
+        800;
+
+    color:
+        #000;
+
+}
+
+.obs-texto {
+
+    display:
+        block;
+
+    margin-top:
+        2px;
+
+    font-size:
+        13px;
+
+    font-weight:
+        600;
+
+    color:
+        #000;
+
+}
+
+
+/* =====================================================
+   ALERTA DE GASTOS — formulario
+   Se muestra en vivo si los gastos superan la producción
+===================================================== */
+
+.form-warning {
+
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    gap:
+        8px;
+
+    margin:
+        14px 0 0;
+
+    padding:
+        12px 14px;
+
+    border:
+        1px solid #e0b13c;
+
+    border-radius:
+        10px;
+
+    background:
+        #fff6df;
+
+    color:
+        #000;
+
+    font-size:
+        12.5px;
+
+    font-weight:
+        700;
+
+}
+
+.form-warning::before {
+
+    content:
+        "⚠";
+
+    flex:
+        none;
+
+}
+
+/* --- Historial clicable: navega a la unidad y su semana --- */
+
+.history-item {
+
+    cursor:
+        pointer;
+
+}
+
+.history-item:focus-visible {
+
+    outline:
+        2px solid var(--blue);
+
+    outline-offset:
+        2px;
+
+}
+
+.history-item:hover .historial-derecha strong {
+
+    color:
+        var(--blue);
+
+}
+
+.history-item:active {
+
+    transform:
+        scale(.995);
 
 }

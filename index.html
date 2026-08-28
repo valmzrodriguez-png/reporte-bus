@@ -196,10 +196,7 @@
   </div>
 
 
-<div id="produccionCampos" class="form-grid calculo-grid">
-
-
-<!-- ESTADO DEL DÍA -->
+<!-- ESTADO DEL DÍA — SIEMPRE VISIBLE (se mantiene aunque se seleccione "Parada") -->
 
 <label class="field field-wide">
 
@@ -220,6 +217,26 @@
   </select>
 
 </label>
+
+
+<!-- OBSERVACIONES — SIEMPRE VISIBLE -->
+
+<div class="field field-wide">
+
+  <span>
+    Observaciones
+  </span>
+
+  <textarea
+    id="observaciones"
+    rows="3"
+    placeholder="Escribe alguna observación del día (ej: choque)..."
+  ></textarea>
+
+</div>
+
+
+<div id="produccionCampos" class="form-grid calculo-grid">
 
 
 <!-- PRODUCCIÓN -->
@@ -487,6 +504,16 @@
 
 </div>
 
+
+<!-- ALERTA VISUAL: gastos que superan la producción total -->
+
+<div
+  id="gastoWarning"
+  class="form-warning hidden"
+>
+  La suma de los gastos supera la Producción total del día.
+</div>
+
 </div>
 
 
@@ -543,22 +570,6 @@
       </div>
 
     </label>
-
-  </div>
-
-
-  <!-- Observaciones -->
-  <div class="field field-wide">
-
-    <span>
-      Observaciones
-    </span>
-
-    <textarea
-      id="obsParada"
-      rows="3"
-      placeholder="Escribe alguna observación del día..."
-    ></textarea>
 
   </div>
 
@@ -656,6 +667,13 @@
 
   </h2>
 
+  <p
+    class="preview-periodo"
+    id="reportHeaderPeriodo"
+  >
+    Periodo: --/--/---- - --/--/----
+  </p>
+
 </div>
 
 
@@ -670,6 +688,25 @@
   </span>
 
 </div>
+
+</div>
+
+
+<!-- SELECTOR DE SEMANA -->
+
+<div class="week-selector">
+
+  <label for="semanaSelect">
+    Semana
+  </label>
+
+  <select id="semanaSelect">
+
+    <option value="">
+      Cargando semanas…
+    </option>
+
+  </select>
 
 </div>
 
@@ -719,83 +756,48 @@
 </div>
 
 
-<!-- TABLA -->
+<!-- BLOQUES DIARIOS -->
 
-<div class="table-container">
+<div id="dailyBlocksContainer" class="daily-blocks-container">
 
-<table id="weeklyTable">
-
-<thead>
-
-<tr>
-
-<th>Día</th>
-<th>Fecha</th>
-<th>Ruta</th>
-<th>Producción</th>
-<th>Combustible</th>
-<th>Gasto adicional</th>
-<th>Depósito</th>
-
-</tr>
-
-</thead>
-
-
-<tbody id="weeklyTableBody">
-
-<tr>
-
-<td
-  colspan="7"
-  class="empty-state"
->
-
-  Selecciona una unidad
-  para visualizar su
-  reporte semanal.
-
-</td>
-
-</tr>
-
-</tbody>
-
-
-<tfoot>
-
-<tr>
-
-<td
-  colspan="3"
-  class="total-label"
->
-  TOTAL SEMANAL
-</td>
-
-<td id="tableTotalProduccion">
-  $0.00
-</td>
-
-<td id="tableTotalCombustible">
-  $0.00
-</td>
-
-<td id="tableTotalGastoAdicional">
-  $0.00
-</td>
-
-<td id="tableTotalDeposito">
-  $0.00
-</td>
-
-</tr>
-
-</tfoot>
-
-</table>
+  <div class="empty-state">
+    Selecciona una unidad
+    para visualizar su
+    reporte semanal.
+  </div>
 
 </div>
+
+
+<!-- TOTALES SEMANALES -->
+
+<div class="weekly-totals" id="weeklyTotals" style="display:none;">
+
+  <div class="weekly-totals-row">
+    <span>TOTAL PRODUCCIÓN</span>
+    <strong id="tableTotalProduccion">$0.00</strong>
+  </div>
+
+  <div class="weekly-totals-row">
+    <span>TOTAL DESCUENTOS</span>
+    <strong id="tableTotalDescuentos">$0.00</strong>
+  </div>
+
+  <div class="weekly-totals-row weekly-totals-deposito">
+    <span>TOTAL DEPOSITADO</span>
+    <strong id="tableTotalDeposito">$0.00</strong>
+  </div>
+
+</div>
+
+
+<!-- OBSERVACIONES DE LA SEMANA (solo al final del reporte) -->
+
+<div
+  id="reporteObservaciones"
+  class="reporte-observaciones"
+  style="display:none;"
+></div>
 
 
 <!-- BOTONES PDF -->
@@ -1062,7 +1064,7 @@
 </div>
 
 
-<script src="script.js?v=11"></script>
+<script src="script.js?v=22"></script>
 
 </body>
 </html>

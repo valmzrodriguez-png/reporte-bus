@@ -1,7 +1,7 @@
 "use strict";
 
 /* Marcador para confirmar en consola qué versión ejecuta el navegador */
-console.log("%c[script.js] v4 — gastos múltiples dinámicos + borrar unidad", "color:#2563eb;font-weight:bold;");
+console.log("%c[script.js] v15 — total de unidad alineado bajo Ruta/Depósito dentro del margen (PDF)", "color:#333;font-weight:bold;");
 
 /* Ningún error puede quedar invisible */
 window.addEventListener("error", (e) => {
@@ -81,6 +81,117 @@ function hoyISO() {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/* =====================================================
+   SEMANAS — utilidades y filtrado global
+===================================================== */
+
+/* Semana seleccionada para Reporte Semanal y Tabla Resumida:
+   { inicio: "YYYY-MM-DD", fin: "YYYY-MM-DD" } (lunes–domingo) */
+let semanaSeleccionada = null;
+
+/* Se resuelve una vez los registros están cargados: la semana
+   más reciente con datos (o la actual si no hay registros) */
+function semanaPorDefecto() {
+    if (!registros.length) return null;
+    const ultimaFecha = registros
+        .map((r) => r.fecha)
+        .filter(Boolean)
+        .sort()
+        .pop();
+    if (!ultimaFecha) return null;
+    return rangoSemanaDe(ultimaFecha);
+}
+
+/* Lunes de la semana que contiene la fecha dada */
+function lunesDeLaSemana(fecha) {
+    const d = new Date(fecha);
+    const dia = d.getDay();
+    const diff = dia === 0 ? -6 : 1 - dia;
+    d.setDate(d.getDate() + diff);
+    return d;
+}
+
+/* Suma n días a una fecha ISO y devuelve ISO "YYYY-MM-DD" */
+function sumarDiasISO(iso, n) {
+    const d = new Date(iso + "T12:00:00");
+    d.setDate(d.getDate() + n);
+    const p = (x) => String(x).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/* Objeto { inicio, fin } de la semana (lunes–domingo) de una fecha ISO */
+function rangoSemanaDe(fechaISO) {
+    const inicio = _dateAISO(lunesDeLaSemana(new Date(fechaISO + "T12:00:00")));
+    return { inicio, fin: sumarDiasISO(inicio, 6) };
+}
+
+/* Etiqueta visible de una semana: "DD/MM/AAAA al DD/MM/AAAA" */
+function etiquetaSemana(semana) {
+    return `${fmtFecha(semana.inicio)} al ${fmtFecha(semana.fin)}`;
+}
+
+/* Semanas a ofrecer en el selector:
+   semana actual, semana anterior y cada semana con registros.
+   Devuelve { inicio, fin } ordenadas de más reciente a más antigua */
+function semanasDisponibles() {
+    const mapa = new Map();
+    let clave;
+
+    clave = rangoSemanaDe(hoyISO()).inicio;
+    mapa.set(clave, clave);
+
+    clave = rangoSemanaDe(sumarDiasISO(hoyISO(), -7)).inicio;
+    mapa.set(clave, clave);
+
+    registros.forEach((r) => {
+        if (!r.fecha) return;
+        clave = rangoSemanaDe(r.fecha).inicio;
+        mapa.set(clave, clave);
+    });
+
+    return [...mapa.keys()]
+        .sort((a, b) => (a < b ? 1 : -1))
+        .map((inicio) => ({ inicio, fin: sumarDiasISO(inicio, 6) }));
+}
+
+/* "DD/MM/AAAA - DD/MM/AAAA" de la semana seleccionada */
+function textoPeriodoSemana() {
+    return semanaSeleccionada
+        ? `${fmtFecha(semanaSeleccionada.inicio)} - ${fmtFecha(semanaSeleccionada.fin)}`
+        : "";
+}
+
+/* Registros globales filtrados a la semana seleccionada */
+function registrosEnSemana(regs) {
+    if (!semanaSeleccionada) return regs;
+    return regs.filter((r) => r.fecha >= semanaSeleccionada.inicio && r.fecha <= semanaSeleccionada.fin);
+}
+
+/* Rellena el <select> con las semanas disponibles */
+function renderSelectorSemana() {
+    const sel = $id("semanaSelect");
+    if (!sel) return;
+
+    const semanas = semanasDisponibles();
+
+    if (!semanas.length) {
+        sel.innerHTML = `<option value="">Sin semanas</option>`;
+        return;
+    }
+
+    if (!semanaSeleccionada || !semanas.some((s) => s.inicio === semanaSeleccionada.inicio)) {
+        semanaSeleccionada = semanaPorDefecto() || semanas[0];
+    }
+
+    sel.innerHTML = semanas.map((s) => `
+        <option value="${s.inicio}"${s.inicio === semanaSeleccionada.inicio ? " selected" : ""}>
+            ${s.inicio === rangoSemanaDe(hoyISO()).inicio ? "Semana actual" : (s.inicio === rangoSemanaDe(sumarDiasISO(hoyISO(), -7)).inicio ? "Semana anterior" : "Semana")} (${etiquetaSemana(s)})
+        </option>`).join("");
+
+    sel.disabled = false;
+}
+
+
 function ahoraTexto() {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
@@ -127,6 +238,7 @@ function normalizarRegistro(fila) {
         administracion: num(fila.administracion),
         alimentacionLimpieza: num(fila.alimentacion_limpieza),
         conductorMonto: num(fila.conductor_monto),
+        conductorPorcentaje: num(fila.conductor_porcentaje) || 18,
         gastoAdicional: montoGasto
             ? {
                 concepto: fila.concepto_gastos || "Gasto adicional",
@@ -134,6 +246,7 @@ function normalizarRegistro(fila) {
             }
             : null,
         deposito: num(fila.deposito),
+        observaciones: fila.observaciones || "",
     };
 }
 
@@ -197,9 +310,10 @@ function clasificarErrorGuardado(error) {
         return {
             titulo: "Esquema desactualizado",
             mensaje:
-                "La tabla «registros_semanales» todavía no expone las columnas nuevas (administración, alimentación, conductor, estado).\n\n" +
+                "La tabla «registros_semanales» todavía no expone las columnas nuevas (administración, alimentación, conductor, estado, observaciones).\n\n" +
                 "1) Ejecuta en el SQL Editor de Supabase:\n" +
                 "ALTER TABLE registros_semanales ADD COLUMN IF NOT EXISTS administracion NUMERIC(10,2) DEFAULT 0;\n" +
+                "ALTER TABLE registros_semanales ADD COLUMN IF NOT EXISTS observaciones TEXT DEFAULT NULL;\n" +
                 "(bloque completo en supabase/migrations/…sql)\n\n" +
                 "2) Si YA lo ejecutaste, recarga el caché con:\n" +
                 "NOTIFY pgrst, 'reload schema';\n\n" +
@@ -290,28 +404,49 @@ function ordenarPorFecha(lista) {
 
 function registrosDeUnidad(unidad) {
     return ordenarPorFecha(
-        registros.filter((r) => r.unidad === unidad)
+        registrosEnSemana(registros).filter((r) => r.unidad === unidad)
     );
 }
 
 function unidadesRegistradas() {
     const map = new Map();
-    registros.forEach((r) => {
+    registrosEnSemana(registros).forEach((r) => {
         if (!map.has(r.unidad)) map.set(r.unidad, []);
         map.get(r.unidad).push(r);
     });
     return [...map.keys()];
 }
 
+/* Todas las unidades únicas con información en la base de datos,
+   sin importar la semana seleccionada */
+function todasLasUnidades() {
+    const map = new Map();
+    registros.forEach((r) => {
+        if (!map.has(r.unidad)) map.set(r.unidad, true);
+    });
+    return [...map.keys()];
+}
+
+/* Unidad recomendada para el reporte: la de menor número que tenga
+   registros en la semana seleccionada; si ninguna los tiene, la primera */
+function unidadRecomendada() {
+    const todas = todasLasUnidades().sort((a, b) => num(a) - num(b));
+    const conRegistros = todas.filter((u) => registrosDeUnidad(u).length);
+    return (conRegistros.length ? conRegistros : todas)[0] ?? null;
+}
+
 function totalesUnidad(unidad) {
     const lista = registrosDeUnidad(unidad);
     const suma = (f) => lista.reduce((s, r) => s + f(r), 0);
+    /* El depósito total se calcula con la lógica de arrastre:
+       descuenta la administración pendiente acumulada de días PARADA */
+    const resumen = resumenSemana(lista);
     return {
         dias: lista.length,
         produccion: suma((r) => r.produccion),
         combustible: suma((r) => r.combustible),
         gastoAdicional: suma((r) => (r.gastoAdicional ? r.gastoAdicional.monto : 0)),
-        deposito: suma((r) => r.deposito),
+        deposito: resumen.totalDeposito,
     };
 }
 
@@ -470,9 +605,9 @@ function aplicarEstadoDia() {
             "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
             $id(idCampo).disabled = false;
         });
-        /* Limpia campos de parada al volver a producción */
+        /* Limpia solo la administración de parada al volver a producción;
+           las observaciones escritas se conservan */
         $id("adminParada").value = "";
-        $id("obsParada").value = "";
     }
 
     calcularEnVivo();
@@ -485,6 +620,20 @@ function calcularEnVivo() {
     $id("deposito").value = nf.format(v.deposito);
     $id("resumenProduccion").textContent = fmtMoneda(v.produccion);
     $id("resumenDeposito").textContent = fmtMoneda(v.deposito);
+
+    actualizarAlertaGastos(v);
+}
+
+/* Alerta visual: si la suma de los gastos supera la Producción
+   total del día, el depósito sería negativo */
+function actualizarAlertaGastos(v) {
+    const el = $id("gastoWarning");
+    if (!el) return;
+
+    const totalGastos = v.combustible + v.administracion + v.alimentacionLimpieza + v.conductorMonto + v.sumaGastos;
+    const supera = v.enProduccion && v.produccion > 0 && totalGastos > v.produccion;
+
+    el.classList.toggle("hidden", !supera);
 }
 
 fechaInput.addEventListener("change", () => {
@@ -497,8 +646,14 @@ estadoDiaSelect.addEventListener("change", aplicarEstadoDia);
 
 on("addGastoBtn", "click", () => agregarFilaGasto(true));
 
-/* Delegación: los inputs de las filas se crean dinámicamente */
-$id("gastosLista").addEventListener("input", calcularEnVivo);
+/* Delegación: los inputs de las filas se crean dinámicamente.
+   Bloquea montos negativos en cada fila de gasto */
+$id("gastosLista").addEventListener("input", (e) => {
+    if (e.target.classList.contains("gasto-monto") && e.target.value !== "" && num(e.target.value) < 0) {
+        e.target.value = "";
+    }
+    calcularEnVivo();
+});
 
 $id("gastosLista").addEventListener("click", (e) => {
     const btn = e.target.closest(".btn-remove-gasto");
@@ -517,14 +672,16 @@ $id("gastosLista").addEventListener("click", (e) => {
     calcularEnVivo();
 });
 
-/* Recalculo en tiempo real mientras el usuario escribe */
+/* Recalcula en tiempo real mientras el usuario escribe y
+   bloquea la entrada de montos negativos (añadido a min="0") */
 ["produccionTotal", "combustible", "administracion",
-    "alimentacionLimpieza", "conductorPorcentaje"].forEach((idCampo) => {
-        $id(idCampo).addEventListener("input", calcularEnVivo);
+    "alimentacionLimpieza", "conductorPorcentaje", "adminParada"].forEach((idCampo) => {
+        const input = $id(idCampo);
+        input.addEventListener("input", () => {
+            if (input.value !== "" && num(input.value) < 0) input.value = "";
+            calcularEnVivo();
+        });
     });
-
-/* Campo de administración de parada */
-on("adminParada", "input", calcularEnVivo);
 
 let guardando = false;
 
@@ -542,6 +699,52 @@ form.addEventListener("submit", async (e) => {
 
     /* Suma total de todos los gastos adicionales ingresados */
     const gastos = leerGastosFormulario();
+
+    /* --- Validaciones de negocio --- */
+
+    if (!$id("numeroUnidad").value.trim()) {
+        mostrarModalAviso("Datos incompletos", "El número de unidad es obligatorio.");
+        return;
+    }
+
+    /* Fecha obligatoria: no se admite guardar sin fecha */
+    if (!fechaInput.value) {
+        mostrarModalAviso("Falta la fecha", "La fecha es obligatoria para guardar el registro.");
+        return;
+    }
+
+    /* Bloquea montos negativos (respaldo al min="0" y a la
+       limpieza en vivo, por si se escribió un negativo a mano) */
+    const negativos = [];
+    [["produccionTotal", "Producción total"],
+        ["combustible", "Combustible"],
+        ["administracion", "Administración"],
+        ["alimentacionLimpieza", "Alimentación + limpieza"],
+        ["conductorPorcentaje", "Porcentaje del conductor"],
+        ["adminParada", "Administración de la parada"],
+    ].forEach(([idCampo, nombre]) => {
+        if (num($id(idCampo).value) < 0) negativos.push(nombre);
+    });
+    gastos.forEach((g, i) => {
+        if (g.monto < 0) negativos.push(`Gasto adicional #${i + 1}`);
+    });
+    if (negativos.length) {
+        mostrarModalAviso("Montos negativos no permitidos", `Corrige los siguientes valores, no pueden ser negativos:\n\n• ${negativos.join("\n• ")}`);
+        return;
+    }
+
+    /* Regla de PARADA: no se permite ingresar Producción total */
+    if (estadoDiaSelect.value === "parada" && num($id("produccionTotal").value) > 0) {
+        mostrarModalAviso("Regla de PARADA", "Un día en PARADA no genera producción.\n\nLa Producción total debe quedar en $0.00 para guardar un día parada.");
+        return;
+    }
+
+    /* Depósito sin ingresos: no se guarda producción sin ingresos
+       registrados (los días PARADA usan el flujo de parada) */
+    if (v.enProduccion && v.produccion <= 0) {
+        mostrarModalAviso("Producción requerida", "No puedes guardar un depósito sin ingresos registrados.\n\nDebes indicar la Producción total del día. Si la unidad estuvo parada, marca «Estado del día» = Parada.");
+        return;
+    }
 
     /* Concatena los conceptos: "Llanta ($10.00), Aceite ($15.00)".
        Aplica también en días de Parada con gastos */
@@ -567,6 +770,7 @@ form.addEventListener("submit", async (e) => {
         gastos_adicionales: v.sumaGastos,
         concepto_gastos: conceptoGastos,
         deposito: v.deposito,
+        observaciones: $id("observaciones").value.trim(),
     };
 
     guardando = true;
@@ -610,7 +814,8 @@ function reiniciarFormulario(limpiarTodo) {
     estadoDiaSelect.value = "produccion";
     tieneGastoSelect.value = "no";
     $id("adminParada").value = "";
-    $id("obsParada").value = "";
+    $id("observaciones").value = "";
+    $id("gastoWarning").classList.add("hidden");
     aplicarEstadoDia();
     actualizarCamposGasto();
     calcularEnVivo();
@@ -738,6 +943,7 @@ on("confirmOverlay", "click", (e) => {
 ===================================================== */
 
 function renderTodo() {
+    renderSelectorSemana();
     renderUnidades();
     renderVistaUnidad();
     renderHistorial();
@@ -745,7 +951,7 @@ function renderTodo() {
 
 function renderUnidades() {
     const cont = $id("unitsList");
-    const unidades = unidadesRegistradas();
+    const unidades = todasLasUnidades();
 
     if (!unidades.length) {
         cont.innerHTML = `<div class="empty-state">Aún no hay unidades registradas.</div>`;
@@ -805,66 +1011,247 @@ on("unitsList", "click", (e) => {
 });
 
 function renderVistaUnidad() {
-    const tbody = $id("weeklyTableBody");
+    const cont = $id("dailyBlocksContainer");
+    const totalesEl = $id("weeklyTotals");
+    const periodo = textoPeriodoSemana();
 
     if (!unidadSeleccionada || !registrosDeUnidad(unidadSeleccionada).length) {
-        tbody.innerHTML = `
-            <tr><td colspan="7" class="empty-state">
+        cont.innerHTML = `
+            <div class="empty-state">
                 ${unidadSeleccionada
-                    ? `La unidad ${esc(unidadSeleccionada)} no tiene registros.`
-                    : "Selecciona una unidad para visualizar su reporte semanal."}
-            </td></tr>`;
+                    ? `La unidad ${esc(unidadSeleccionada)} no tiene registros${periodo ? " en la semana seleccionada." : "."}`
+                    : (periodo ? "Selecciona una unidad para visualizar su reporte de la semana." : "Selecciona una unidad para visualizar su reporte semanal.")}
+            </div>`;
+        totalesEl.style.display = "none";
         limpiarTotalesTabla();
-        pintarEncabezadoVista(unidadSeleccionada, null, null);
+        renderObservacionesSemana(null);
+        pintarEncabezadoVista(unidadSeleccionada, periodo, null);
         return;
     }
 
     const calc = registrosDeUnidad(unidadSeleccionada);
 
-    tbody.innerHTML = calc.map((r) => {
-        const gastoCell = r.gastoAdicional && r.gastoAdicional.monto
-            ? `${fmtMoneda(r.gastoAdicional.monto)}<small>${esc(r.gastoAdicional.concepto)}</small>`
-            : "—";
+    /* Resumen con lógica de arrastre de saldos (admin pendiente) */
+    const resumen = resumenSemana(calc);
 
-        return `
-            <tr>
-                <td>${esc(r.dia)}</td>
-                <td>${fmtFecha(r.fecha)}</td>
-                <td>${esc(r.ruta || "-")}</td>
-                <td>${fmtMoneda(r.produccion)}</td>
-                <td>${fmtMoneda(r.combustible)}</td>
-                <td>${gastoCell}</td>
-                <td class="celda-deposito">${fmtMoneda(r.deposito)}</td>
-            </tr>`;
-    }).join("");
+    /* Construir HTML de bloques diarios */
+    cont.innerHTML = resumen.semana.map(d => construirBloqueDia(d)).join("");
 
-    const t = totalesUnidad(unidadSeleccionada);
-    $id("tableTotalProduccion").textContent = fmtMoneda(t.produccion);
-    $id("tableTotalCombustible").textContent = fmtMoneda(t.combustible);
-    $id("tableTotalGastoAdicional").textContent = fmtMoneda(t.gastoAdicional);
-    $id("tableTotalDeposito").textContent = fmtMoneda(t.deposito);
+    /* Totales semanales */
+    totalesEl.style.display = "block";
+    $id("tableTotalProduccion").textContent = fmtMoneda(resumen.totalProduccion);
+    $id("tableTotalDescuentos").textContent = `-${fmtMoneda(resumen.totalDescuentos)}`;
+    $id("tableTotalDeposito").textContent = fmtMoneda(resumen.totalDeposito);
 
+    /* Observaciones consolidadas: solo al final del reporte */
+    renderObservacionesSemana(resumen);
+
+    /* Resumen semanal */
     pintarEncabezadoVista(
         unidadSeleccionada,
-        `${fmtFecha(calc[0].fecha)} – ${fmtFecha(calc[calc.length - 1].fecha)}`,
-        t
+        periodo || `${fmtFecha(calc[0].fecha)} – ${fmtFecha(calc[calc.length - 1].fecha)}`,
+        {
+            dias: calc.length,
+            produccion: resumen.totalProduccion,
+            deposito: resumen.totalDeposito,
+        }
     );
 }
 
 function pintarEncabezadoVista(unidad, periodo, totales) {
     $id("previewNumeroUnidad").textContent = unidad || "-";
     $id("reportHeaderDate").textContent = periodo || "Sin registros";
+    $id("reportHeaderPeriodo").textContent = `Periodo: ${periodo || "--/--/---- - --/--/----"}`;
 
     $id("totalProduccionSemanal").textContent = totales ? fmtMoneda(totales.produccion) : "$0.00";
     $id("totalDepositoSemanal").textContent = totales ? fmtMoneda(totales.deposito) : "$0.00";
     $id("diasRegistrados").textContent = `${totales ? totales.dias : 0} / 7`;
 }
 
+/* Observaciones consolidadas: se muestran ÚNICAMENTE al final
+   del reporte (debajo del resumen de días), nunca en cada bloque */
+function renderObservacionesSemana(resumen) {
+    const obsEl = $id("reporteObservaciones");
+    const entradas = resumen && resumen.semana
+        ? resumen.semana
+            .filter((d) => d.registro && (d.registro.observaciones || "").trim())
+            .map((d) => ({ dia: d.dia, fecha: d.fecha, texto: d.registro.observaciones.trim() }))
+        : [];
+
+    if (!entradas.length) {
+        obsEl.style.display = "none";
+        obsEl.innerHTML = "";
+        return;
+    }
+
+    obsEl.style.display = "block";
+    obsEl.innerHTML = `
+        <h4 class="obs-title">Observaciones de la semana</h4>
+        ${entradas.map((e) => `
+            <div class="obs-item">
+                <span class="obs-dia">${esc(e.dia)} ${esc(e.fecha)}</span>
+                <span class="obs-texto">${esc(e.texto)}</span>
+            </div>`).join("")}`;
+}
+
 function limpiarTotalesTabla() {
-    ["tableTotalProduccion", "tableTotalCombustible",
-        "tableTotalGastoAdicional", "tableTotalDeposito"].forEach((idCampo) => {
-            $id(idCampo).textContent = "$0.00";
-        });
+    ["tableTotalProduccion", "tableTotalDescuentos", "tableTotalDeposito"].forEach((idCampo) => {
+        $id(idCampo).textContent = "$0.00";
+    });
+}
+
+/* Cambiar de semana actualiza automáticamente el Reporte Semanal,
+   la lista de unidades (Tabla Resumida) y las exportaciones */
+on("semanaSelect", "change", (e) => {
+    const inicio = e.target.value;
+    if (!inicio) return;
+    semanaSeleccionada = { inicio, fin: sumarDiasISO(inicio, 6) };
+    renderTodo();
+    document.querySelector(".preview-panel")?.scrollIntoView({ behavior: "smooth" });
+});
+
+/**
+ * Construye el HTML de un bloque diario para el reporte detallado.
+ * Muestra encabezado del día, detalle operativo con descuentos
+ * con signo negativo, subtotal parcial y depósito destacado.
+ *
+ * @param {Object} dia — Objeto enriquecido de construirSemanaCompleta()
+ *   más lineaAdminPendiente (number|null) y
+ *   lineaAdminPendienteDias (Array<string>|null)
+ * @returns {string} HTML del bloque
+ */
+function construirBloqueDia(dia) {
+    const sinRegistro = dia.estadoDia === "sin_registro";
+    const esParada = dia.estadoDia === "parada";
+    const r = dia.registro;
+
+    const badgeClase = esParada ? "day-badge-parada" : (sinRegistro ? "day-badge-sin-registro" : "day-badge-produccion");
+    const badgeTexto = esParada ? "PARADA" : (sinRegistro ? "Sin registro" : "PRODUCCIÓN");
+
+    let contenidoDetalle = "";
+
+    if (sinRegistro) {
+        contenidoDetalle = `
+            <div class="day-block-empty">
+                Sin registros para este día.
+            </div>`;
+    } else if (esParada) {
+        const adminMonto = r ? num(r.administracion) : 0;
+        contenidoDetalle = `
+            <div class="day-detail-grid">
+                <div class="day-detail-row">
+                    <span class="day-detail-label">Ruta</span>
+                    <span class="day-detail-value">${esc(r ? (r.ruta || "-") : "-")}</span>
+                </div>
+                <div class="day-detail-row">
+                    <span class="day-detail-label">Estado</span>
+                    <span class="day-detail-value">Unidad en PARADA — No genera producción</span>
+                </div>
+                ${adminMonto > 0 ? `
+                <div class="day-detail-row">
+                    <span class="day-detail-label">Administración de la parada</span>
+                    <span class="day-detail-value">-${fmtMoneda(adminMonto)}</span>
+                </div>
+                ` : ""}
+            </div>`;
+    } else {
+        /* Día con producción */
+        const prod = num(r.produccion);
+        const comb = num(r.combustible);
+        const admin = num(r.administracion);
+        const ali = num(r.alimentacionLimpieza);
+        const condMonto = num(r.conductorMonto);
+        const condPct = num(r.conductorPorcentaje || 18);
+        const gasto = r.gastoAdicional ? num(r.gastoAdicional.monto) : 0;
+        const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
+        const adminPend = dia.lineaAdminPendiente || 0;
+
+        /* Subtotales parciales (no incluyen conductor ni admin pendiente) */
+        const subCombustible = prod - comb;
+        const subRestante = prod - comb - admin - ali - gasto;
+
+        /* DEPÓSITO = Producción − (Combustible + Administración + Alimentación
+           + Gasto extra + Conductor + Administración pendiente) */
+        const depositoFinal = depositoAjustado(dia);
+
+        contenidoDetalle = `
+            <div class="day-detail-grid">
+                <div class="day-detail-row">
+                    <span class="day-detail-label">Ruta</span>
+                    <span class="day-detail-value">${esc(r.ruta || "-")}</span>
+                </div>
+
+                <div class="day-detail-divider"></div>
+
+                <div class="day-detail-row day-detail-ingreso">
+                    <span class="day-detail-label">Producción total</span>
+                    <span class="day-detail-value">${fmtMoneda(prod)}</span>
+                </div>
+
+                <div class="day-detail-row">
+                    <span class="day-detail-label">- Combustible</span>
+                    <span class="day-detail-value">-${fmtMoneda(comb)}</span>
+                </div>
+
+                <div class="day-detail-row day-detail-subtotal">
+                    <span class="day-detail-label">Subtotal</span>
+                    <span class="day-detail-value">${fmtMoneda(subCombustible)}</span>
+                </div>
+
+                <div class="day-detail-row">
+                    <span class="day-detail-label">- Administración</span>
+                    <span class="day-detail-value">-${fmtMoneda(admin)}</span>
+                </div>
+
+                <div class="day-detail-row">
+                    <span class="day-detail-label">- Alimentación + limpieza</span>
+                    <span class="day-detail-value">-${fmtMoneda(ali)}</span>
+                </div>
+
+                ${gasto > 0 ? `
+                <div class="day-detail-row">
+                    <span class="day-detail-label">- ${esc(conceptoGasto || "Gasto adicional")}</span>
+                    <span class="day-detail-value">-${fmtMoneda(gasto)}</span>
+                </div>
+                ` : ""}
+
+                <div class="day-detail-row day-detail-subtotal">
+                    <span class="day-detail-label">Subtotal</span>
+                    <span class="day-detail-value">${fmtMoneda(subRestante)}</span>
+                </div>
+
+                <div class="day-detail-row">
+                    <span class="day-detail-label">- Conductor (${nf.format(condPct)}%)</span>
+                    <span class="day-detail-value">-${fmtMoneda(condMonto)}</span>
+                </div>
+
+                ${adminPend > 0 ? `
+                <div class="day-detail-row day-detail-pendiente">
+                    <span class="day-detail-label">- Administración pendiente (${_textoOrigenPendiente(dia.lineaAdminPendienteDias)})</span>
+                    <span class="day-detail-value">-${fmtMoneda(adminPend)}</span>
+                </div>
+                ` : ""}
+
+                <div class="day-detail-row day-detail-deposito">
+                    <span class="day-detail-label">DEPÓSITO</span>
+                    <span class="day-detail-value">${fmtMoneda(depositoFinal)}</span>
+                </div>
+            </div>`;
+    }
+
+    return `
+        <div class="day-block ${sinRegistro ? "day-block-empty-state" : ""}" style="page-break-inside: avoid;">
+            <div class="day-block-header">
+                <div class="day-block-title-row">
+                    <span class="day-block-name">${esc(dia.dia)}</span>
+                    <span class="day-block-date">${dia.fecha}</span>
+                </div>
+                <span class="day-block-badge ${badgeClase}">${badgeTexto}</span>
+            </div>
+            <div class="day-block-body">
+                ${contenidoDetalle}
+            </div>
+        </div>`;
 }
 
 function renderHistorial(filtro = "") {
@@ -881,7 +1268,7 @@ function renderHistorial(filtro = "") {
     }
 
     lista.innerHTML = items.map((r) => `
-            <li class="history-item">
+            <li class="history-item" data-unidad="${esc(r.unidad)}" data-fecha="${r.fecha}" tabindex="0" role="button" aria-label="Ver reporte de la Unidad ${esc(r.unidad)} de la semana del ${fmtFecha(r.fecha)}">
                 <div>
                     <strong>Unidad ${esc(r.unidad)}</strong>
                     <span>${r.dia} · ${fmtFecha(r.fecha)} · ${esc(r.ruta || "-")}</span>
@@ -896,17 +1283,33 @@ function renderHistorial(filtro = "") {
 
 on("historySearch", "input", (e) => renderHistorial(e.target.value));
 
+on("historyList", "keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const item = e.target.closest(".history-item");
+    if (!item || e.target.closest(".btn-delete")) return;
+    e.preventDefault();
+    navegarDesdeHistorial(item.dataset.unidad, item.dataset.fecha);
+});
+
 on("historyList", "click", async (e) => {
     const btn = e.target.closest(".btn-delete");
-    if (!btn) return;
+    if (btn) {
+        await borrarRegistroHistorial(btn.dataset.id);
+        return;
+    }
 
+    const item = e.target.closest(".history-item");
+    if (item) navegarDesdeHistorial(item.dataset.unidad, item.dataset.fecha);
+});
+
+async function borrarRegistroHistorial(id) {
     if (!clienteListo()) {
         mostrarModalAviso("Sin conexión", "La conexión con Supabase no está disponible.");
         return;
     }
     if (!confirm("¿Eliminar este registro?")) return;
 
-    const error = await eliminarRegistro(btn.dataset.id);
+    const error = await eliminarRegistro(id);
     if (error) {
         console.error("Error al eliminar en Supabase:", error);
         mostrarModalAviso("Error al eliminar", "No se pudo eliminar el registro: " + error.message);
@@ -914,7 +1317,18 @@ on("historyList", "click", async (e) => {
     }
 
     await refrescarInterfaz();
-});
+}
+
+/* Al hacer clic en un registro del historial: selecciona la unidad,
+   ajusta la semana a la del registro y muestra el reporte completo */
+function navegarDesdeHistorial(unidad, fecha) {
+    if (!unidad || !fecha) return;
+    unidadSeleccionada = unidad;
+    semanaSeleccionada = rangoSemanaDe(fecha);
+    renderTodo();
+    const panel = document.querySelector(".preview-panel");
+    if (panel) panel.scrollIntoView({ behavior: "smooth" });
+}
 
 /* Garantiza que exista una unidad con datos antes de
    imprimir o exportar; si no hay selección, toma
@@ -926,8 +1340,7 @@ function asegurarUnidadParaReporte() {
     }
 
     if (!unidadSeleccionada || !registrosDeUnidad(unidadSeleccionada).length) {
-        unidadSeleccionada = unidadesRegistradas()
-            .sort((a, b) => num(a) - num(b))[0];
+        unidadSeleccionada = unidadRecomendada();
         renderTodo();
     }
     return true;
@@ -1077,15 +1490,135 @@ function construirSemanaCompleta(regs) {
             registro:  reg || null,
         });
 
-        cursor.setDate(cursor.getDate() + 1);
+cursor.setDate(cursor.getDate() + 1);
     }
 
     return resultado;
 }
 
 /* =====================================================
+   LÓGICA DE ARRASTRE DE SALDOS — Administración pendiente
+   ===================================================== */
+
+/**
+ * Recorre la semana completa (Lunes → Domingo) y marca en cada día
+ * cuánta "Administración pendiente" acumulada se debe descontar.
+ *
+ * Regla:
+ *  - Un día en "PARADA" acumula su administración como pendiente.
+ *  - El primer día con actividad que le siga recibe la línea
+ *    "- Administración pendiente (día anterior)" — con el nombre de los
+ *    días en PARADA que generaron el saldo, ej. "(lunes)" — y el
+ *    acumulado vuelve a cero.
+ *
+ * @param {Array} semana — Resultado de construirSemanaCompleta()
+ * @returns {Array} Semana con las propiedades extra:
+ *   lineaAdminPendiente (number|null) y
+ *   lineaAdminPendienteDias (Array<string>|null, nombres de los días de origen)
+ */
+function enriquecerSemana(semana) {
+    let adminPendiente = 0;
+    let adminPendienteDias = [];
+    return semana.map(d => {
+        const esParada = d.estadoDia === "parada";
+        const sinRegistro = d.estadoDia === "sin_registro";
+        const r = d.registro;
+
+        let lineaAdminPendiente = null;
+        let lineaAdminPendienteDias = null;
+
+        /* Día con actividad (producción o parada): descuenta lo acumulado */
+        if (!sinRegistro && adminPendiente > 0) {
+            lineaAdminPendiente = adminPendiente;
+            lineaAdminPendienteDias = adminPendienteDias.slice();
+        }
+
+        /* Un día PARADA acumula su administración */
+        if (esParada && r) {
+            const adminDelDia = num(r.administracion);
+            if (adminDelDia > 0) {
+                adminPendiente += adminDelDia;
+                adminPendienteDias.push(d.dia);
+            }
+        }
+
+        /* Un día con producción aplica el pendiente y resetea el acumulado */
+        if (!sinRegistro && !esParada && r && lineaAdminPendiente > 0) {
+            adminPendiente = 0;
+            adminPendienteDias = [];
+        }
+
+        return { ...d, lineaAdminPendiente, lineaAdminPendienteDias };
+    });
+}
+
+/* Texto de origen de la administración pendiente según los días
+   en PARADA que la acumularon, ej. "(lunes)", "(lunes y martes)"
+   o "(lunes, martes y miércoles)". */
+function _textoOrigenPendiente(nombres) {
+    if (!nombres || !nombres.length) return "día anterior";
+    const dias = nombres.map(n => n.toLowerCase());
+    if (dias.length === 1) return dias[0];
+    if (dias.length === 2) return dias[0] + " y " + dias[1];
+    return dias.slice(0, -1).join(", ") + " y " + dias[dias.length - 1];
+}
+
+/**
+ * Depósito ajustado de un día: al valor guardado en la BD se le resta
+ * la administración pendiente aplicada ese día.
+ *
+ * DEPÓSITO = Producción − (Combustible + Administración + Alimentación
+ *            + Conductor + Gastos extra + Administración pendiente)
+ *
+ * @param {Object} dia — Día enriquecido (con lineaAdminPendiente)
+ * @returns {number} Depósito con el descuento pendiente aplicado
+ */
+function depositoAjustado(dia) {
+    const r = dia.registro;
+    if (!r) return 0;
+    return num(r.deposito) - (dia.lineaAdminPendiente || 0);
+}
+
+/**
+ * Resumen semanal con la lógica de arrastre ya aplicada.
+ * Solo los días con producción aportan montos; los días PARADA
+ * acumulan su administración como pendiente.
+ *
+ * @param {Array} regs — registrosDeUnidad(unidad), ordenados
+ * @returns {{ semana: Array, totalProduccion: number,
+ *             totalDescuentos: number, totalDeposito: number }}
+ */
+function resumenSemana(regs) {
+    if (!regs.length) {
+        return { semana: [], totalProduccion: 0, totalDescuentos: 0, totalDeposito: 0 };
+    }
+
+    const semana = enriquecerSemana(construirSemanaCompleta(regs));
+
+    let totalProduccion = 0;
+    let totalDescuentos = 0;
+    let totalDeposito = 0;
+
+    semana.forEach(d => {
+        const r = d.registro;
+        if (!r || d.estadoDia === "parada") return;
+
+        const adminPend = d.lineaAdminPendiente || 0;
+
+        totalProduccion += num(r.produccion);
+        totalDescuentos += r.combustible + r.administracion + r.alimentacionLimpieza
+            + r.conductorMonto
+            + (r.gastoAdicional ? num(r.gastoAdicional.monto) : 0)
+            + adminPend;
+        totalDeposito += num(r.deposito) - adminPend;
+    });
+
+    return { semana, totalProduccion, totalDescuentos, totalDeposito };
+}
+
+/* =====================================================
    EXPORTACIÓN PDF — Formato minimalista B/N
-===================================================== */
+   ===================================================== */
 
 /**
  * Genera y descarga el PDF del Reporte Semanal de una unidad.
@@ -1118,122 +1651,263 @@ function generarPDFReporteSemanal(unidadId, registros) {
     const utilW = pagAncho - M.l - M.r;
     const maxY  = () => pagAlto - M.b;
 
-    const t = totalesUnidad(unidadId);
-    const semana = construirSemanaCompleta(registros);
+    /* Resumen con lógica de arrastre de saldos (admin pendiente) */
+    const resumen = resumenSemana(registros);
+    const semanaEnriquecida = resumen.semana;
 
     /* ---- Título ---- */
+    const fechasPdf = registros.map(r => r.fecha).filter(Boolean).sort();
+    const periodoPdf = textoPeriodoSemana()
+        || (fechasPdf.length ? `${fmtFecha(fechasPdf[0])} - ${fmtFecha(fechasPdf[fechasPdf.length - 1])}` : "");
+    const periodoEncabezado = `Periodo: ${periodoPdf}`;
     let y = M.t;
     doc.setFont("helvetica", "bold").setFontSize(22).setTextColor(0, 0, 0);
-    doc.text("UNIDAD " + unidadId, M.l, y);
-    y += 12;
+    doc.text("REPORTE SEMANAL", M.l, y);
+    y += 8;
+    doc.setFont("helvetica", "normal").setFontSize(12).setTextColor(0, 0, 0);
+    doc.text("Unidad " + unidadId, M.l, y);
+    y += 6;
+    doc.setFontSize(11).setTextColor(40, 40, 40);
+    doc.text(periodoEncabezado, M.l, y);
+    y += 6;
 
     doc.setDrawColor(0, 0, 0).setLineWidth(0.8);
     doc.line(M.l, y, pagAncho - M.r, y);
-    y += 8;
+    y += 10;
 
-    /* ---- Columnas: Día | Fecha | Ruta | Depósito ---- */
-    const cols = [
-        { label: "Día",       pct: 0.18, align: "left"  },
-        { label: "Fecha",     pct: 0.22, align: "left"  },
-        { label: "Ruta",      pct: 0.40, align: "left"  },
-        { label: "Depósito",  pct: 0.20, align: "right" },
-    ];
+    const LH = 5;
+    const FS = 9;
 
-    const colW = cols.map(c => utilW * c.pct);
-    const colX = [];
-    let acc = M.l;
-    colW.forEach(w => { colX.push(acc); acc += w; });
-
-    const PADX   = 3;
-    const LH     = 5;
-    const HHEAD  = 9;
-    const HFILA  = 10;
-    const FS     = 9.5;
-
-    /* ---- Cabecera de tabla (cuadrícula completa) ---- */
-    function dibujarCabecera(y0) {
-        doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
-        doc.rect(M.l, y0, utilW, HHEAD);
-        doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(0, 0, 0);
-        cols.forEach((c, i) => {
-            const tx = c.align === "right"
-                ? colX[i] + colW[i] - PADX
-                : colX[i] + PADX;
-            doc.text(c.label, tx, y0 + 6, { align: c.align });
-        });
-        /* Líneas verticales de columna */
-        cols.forEach((_, i) => {
-            if (i > 0) {
-                doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
-                doc.line(colX[i], y0, colX[i], y0 + HHEAD);
-            }
-        });
-        return y0 + HHEAD;
+    /* ---- Funciones auxiliares ---- */
+    function drawText(text, x, yPos, opts = {}) {
+        doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+            .setFontSize(opts.size || FS)
+            .setTextColor(opts.color || 0, opts.color || 0, opts.color || 0);
+        doc.text(text, x, yPos, { align: opts.align || "left" });
     }
 
-    y = dibujarCabecera(y);
+    function drawLine(x1, yPos, x2) {
+        doc.setDrawColor(180, 180, 180).setLineWidth(0.2);
+        doc.line(x1, yPos, x2, yPos);
+    }
 
-    /* ---- Filas: 7 días (Lun → Dom) con cuadrícula completa ---- */
-    doc.setFont("helvetica", "normal").setFontSize(FS).setTextColor(0, 0, 0);
+    function drawBoldLine(x1, yPos, x2) {
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
+        doc.line(x1, yPos, x2, yPos);
+    }
 
-    semana.forEach(dia => {
-        const esParada    = dia.estadoDia === "parada";
+    /* ---- Bloques diarios ---- */
+    semanaEnriquecida.forEach(dia => {
         const sinRegistro = dia.estadoDia === "sin_registro";
+        const esParada = dia.estadoDia === "parada";
+        const r = dia.registro;
 
-        let depTxt;
-        let rutaTxt;
+        /* Estimar alto del bloque */
+        let lineasNecesarias = 3; /* Header + separator mínimo */
         if (sinRegistro) {
-            rutaTxt = "\u2014";
-            depTxt  = "\u2014";
+            lineasNecesarias = 3;
         } else if (esParada) {
-            rutaTxt = dia.ruta;
-            depTxt  = "PARADA";
+            lineasNecesarias = 4;
+            if (r && num(r.administracion) > 0) lineasNecesarias += 2;
         } else {
-            rutaTxt = dia.ruta;
-            depTxt  = dia.deposito > 0 ? fmtMoneda(dia.deposito) : "\u2014";
+            lineasNecesarias = 13; /* Producción + desglose con subtotales + depósito */
+            if (r && r.gastoAdicional && num(r.gastoAdicional.monto) > 0) lineasNecesarias++;
+            if (dia.lineaAdminPendiente > 0) lineasNecesarias++;
         }
 
-        const celdas = [dia.dia, dia.fecha, rutaTxt, depTxt];
+        const altoEstimado = lineasNecesarias * (LH + 1.5) + 12;
 
-        if (y + HFILA > maxY()) {
+        if (y + altoEstimado > maxY()) {
             doc.addPage();
-            y = dibujarCabecera(M.t);
+            y = M.t;
         }
 
-        /* Fondo de celda */
-        doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
+        /* Fondo del encabezado del día (tono neutro) */
+        doc.setFillColor(245, 245, 245);
+        doc.rect(M.l, y, utilW, 8, "F");
+        doc.setDrawColor(200, 200, 200).setLineWidth(0.3);
+        doc.rect(M.l, y, utilW, 8);
 
-        celdas.forEach((cell, i) => {
-            const x1 = colX[i];
-            const w1 = colW[i];
-            /* Borde exterior de cada celda (cuadrícula completa) */
-            doc.rect(x1, y, w1, HFILA);
-            /* Texto */
-            const tx = cols[i].align === "right"
-                ? x1 + w1 - PADX
-                : x1 + PADX;
-            doc.text(String(cell), tx, y + LH, { align: cols[i].align });
-        });
+        drawText(dia.dia + " — " + dia.fecha, M.l + 3, y + 5.5, { bold: true, size: 10 });
 
-        y += HFILA;
+        /* Badge de estado (PRODUCCIÓN verde, PARADA rojo, SIN REGISTRO gris) */
+        let badgeColor = [150, 150, 150];
+        let badgeText;
+        if (sinRegistro) {
+            badgeText = "SIN REGISTRO";
+        } else if (esParada) {
+            badgeText = "PARADA";
+            badgeColor = [220, 38, 38];
+        } else {
+            badgeText = "PRODUCCIÓN";
+            badgeColor = [7, 136, 63];
+        }
+
+        const badgeW = doc.getTextWidth(badgeText) * 1.1 + 6;
+        doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+        doc.roundedRect(M.l + utilW - badgeW - 3, y + 1.5, badgeW, 5, 2, 2, "F");
+        doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(255, 255, 255);
+        doc.text(badgeText, M.l + utilW - badgeW / 2 - 3, y + 5.2, { align: "center" });
+
+        y += 10;
+
+        if (sinRegistro) {
+            drawText("Sin registros para este día.", M.l + 3, y + 3, { color: 60 });
+            y += 8;
+            drawLine(M.l, y, M.l + utilW);
+            y += 6;
+            return;
+        }
+
+        if (esParada) {
+            drawText("Ruta: " + (r ? (r.ruta || "-") : "-"), M.l + 3, y + 3, { bold: true, size: 9.5 });
+            y += 6;
+            drawText("Estado: Unidad en PARADA — No genera producción", M.l + 3, y + 3, { color: 40 });
+            y += 6;
+
+            if (r && num(r.administracion) > 0) {
+                drawText("Administración de la parada:", M.l + 3, y + 3, { size: 9 });
+                drawText("-" + fmtMoneda(num(r.administracion)), M.l + utilW - 3, y + 3, { align: "right", color: 0 });
+                y += 6;
+            }
+
+            drawLine(M.l, y, M.l + utilW);
+            y += 6;
+            return;
+        }
+
+        /* Día con producción */
+        const prod = num(r.produccion);
+        const comb = num(r.combustible);
+        const admin = num(r.administracion);
+        const ali = num(r.alimentacionLimpieza);
+        const condMonto = num(r.conductorMonto);
+        const condPct = num(r.conductorPorcentaje || 18);
+        const gasto = r.gastoAdicional ? num(r.gastoAdicional.monto) : 0;
+        const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
+        const adminPend = dia.lineaAdminPendiente || 0;
+
+        /* Subtotales parciales */
+        const subCombustible = prod - comb;
+        const subRestante = prod - comb - admin - ali - gasto;
+
+        drawText("Ruta: " + (r.ruta || "-"), M.l + 3, y + 3, { bold: true, size: 9.5 });
+        y += 7;
+        drawBoldLine(M.l, y, M.l + utilW);
+        y += 5;
+
+        /* Producción total */
+        drawText("Producción total", M.l + 3, y + 3, { bold: true });
+        drawText(fmtMoneda(prod), M.l + utilW - 3, y + 3, { align: "right", bold: true });
+        y += 6;
+
+        /* - Combustible → Subtotal */
+        drawText("- Combustible", M.l + 3, y + 3, { size: FS });
+        drawText("-" + fmtMoneda(comb), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+        y += 5;
+        drawText("Subtotal", M.l + 3, y + 3, { bold: true, size: FS });
+        drawText(fmtMoneda(subCombustible), M.l + utilW - 3, y + 3, { align: "right", bold: true });
+        y += 6;
+
+        /* - Administración */
+        drawText("- Administración", M.l + 3, y + 3, { size: FS });
+        drawText("-" + fmtMoneda(admin), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+        y += 5;
+
+        /* - Alimentación + limpieza */
+        drawText("- Alimentación + limpieza", M.l + 3, y + 3, { size: FS });
+        drawText("-" + fmtMoneda(ali), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+        y += 5;
+
+        /* - Gasto adicional (si aplica) */
+        if (gasto > 0) {
+            drawText("- " + (conceptoGasto || "Gasto adicional"), M.l + 3, y + 3, { size: FS });
+            drawText("-" + fmtMoneda(gasto), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+            y += 5;
+        }
+
+        /* Subtotal (restante) */
+        drawText("Subtotal", M.l + 3, y + 3, { bold: true, size: FS });
+        drawText(fmtMoneda(subRestante), M.l + utilW - 3, y + 3, { align: "right", bold: true });
+        y += 6;
+
+        /* - Conductor (%) */
+        drawText("- Conductor (" + nf.format(condPct) + "%)", M.l + 3, y + 3, { size: FS });
+        drawText("-" + fmtMoneda(condMonto), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+        y += 5;
+
+        /* - Administración pendiente (día anterior) */
+        if (adminPend > 0) {
+            drawText("- Administración pendiente (" + _textoOrigenPendiente(dia.lineaAdminPendienteDias) + ")", M.l + 3, y + 3, { size: FS });
+            drawText("-" + fmtMoneda(adminPend), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
+            y += 5;
+        }
+
+        /* DEPÓSITO (cifra final con línea superior) */
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.6);
+        doc.line(M.l, y, M.l + utilW, y);
+        y += 5;
+
+        doc.setFillColor(245, 245, 245);
+        doc.rect(M.l, y - 4, utilW, 8, "F");
+        drawText("DEPÓSITO", M.l + 3, y + 2, { bold: true, size: 12 });
+        drawText(fmtMoneda(depositoAjustado(dia)), M.l + utilW - 3, y + 2, { align: "right", bold: true, size: 12, color: 0 });
+        y += 8;
+
+        drawLine(M.l, y, M.l + utilW);
+        y += 8;
     });
 
     /* ---- Total depositado ---- */
-    y += 6;
-    if (y + 12 > maxY()) {
+    if (y + 14 > maxY()) {
         doc.addPage();
         y = M.t;
     }
 
-    doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
-    doc.line(M.l, y, M.l + utilW, y);
-    y += 8;
+    const totalDep = resumen.totalDeposito;
 
-    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
+    doc.setDrawColor(0, 0, 0).setLineWidth(0.8);
+    doc.line(M.l, y, M.l + utilW, y);
+    y += 10;
+
+    doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(0, 0, 0);
     doc.text(
-        "Total depositado: " + fmtMoneda(t.deposito),
+        "Total depositado: " + fmtMoneda(totalDep),
         pagAncho - M.r, y, { align: "right" }
     );
+    y += 12;
+
+    /* ---- Observaciones de la semana — al final del reporte ---- */
+    const observaciones = semanaEnriquecida
+        .filter((d) => d.registro && (d.registro.observaciones || "").trim())
+        .map((d) => ({ dia: d.dia, fecha: d.fecha, texto: d.registro.observaciones.trim() }));
+
+    if (observaciones.length) {
+        if (y + 12 > maxY()) {
+            doc.addPage();
+            y = M.t;
+        }
+
+        doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
+        doc.text("Observaciones de la semana", M.l, y);
+        y += 2;
+        drawLine(M.l, y, M.l + utilW);
+        y += 6;
+
+        doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(40, 40, 40);
+        observaciones.forEach((o) => {
+            const lineas = doc.splitTextToSize(o.dia + " " + o.fecha + ": " + o.texto, utilW);
+            lineas.forEach((ln) => {
+                if (y + 5 > maxY()) {
+                    doc.addPage();
+                    y = M.t;
+                }
+                doc.text(ln, M.l, y);
+                y += 5;
+            });
+        });
+        y += 6;
+    }
 
     /* ---- Pie de página ---- */
     const nPag = doc.getNumberOfPages();
@@ -1248,14 +1922,56 @@ function generarPDFReporteSemanal(unidadId, registros) {
 }
 
 /**
- * Genera y descarga el PDF de la Tabla Resumida (todas las unidades).
- * Formato: encabezado "Producción de las X unidades", rango de fechas,
- * tabla 2 columnas (Unidad, Depósito total), fila TOTAL al final.
+ * Estructura el desglose semanal de cada unidad con registros en el
+ * periodo seleccionado. Reutilizado por el PDF y la impresión de la
+ * "Tabla Resumida" para mantener un único origen de datos.
  *
- * @param {Array}  resumenUnidades — [{ unidad, deposito, produccion, ... }]
- * @param {string} rangoFechas     — "DD/MM/AAAA hasta DD/MM/AAAA"
+ * @returns {Array} [{ unidad, dias: [{ dia, fecha, ruta, estado, deposito }], total }]
  */
-function generarPDFTablaResumida(resumenUnidades, rangoFechas) {
+function unidadesResumenPeriodo() {
+    return unidadesRegistradas()
+        .sort((a, b) => num(a) - num(b))
+        .map((u) => {
+            const r = resumenSemana(registrosDeUnidad(u));
+            return {
+                unidad: u,
+                dias: r.semana.map((d) => ({
+                    dia: d.dia,
+                    fecha: d.fecha,
+                    ruta: d.registro ? (d.registro.ruta || "-") : "—",
+                    estado: d.estadoDia,
+                    deposito: d.registro ? depositoAjustado(d) : 0,
+                })),
+                total: r.totalDeposito,
+            };
+        });
+}
+
+/* Rango del periodo para la Tabla Resumida: "DD/MM/AAAA hasta DD/MM/AAAA" */
+function textoRangoPeriodo() {
+    if (semanaSeleccionada) {
+        return `${fmtFecha(semanaSeleccionada.inicio)} hasta ${fmtFecha(semanaSeleccionada.fin)}`;
+    }
+    const fechas = registros.map((r) => r.fecha).filter(Boolean).sort();
+    if (!fechas.length) return "";
+    return `${fmtFecha(fechas[0])} hasta ${fmtFecha(fechas[fechas.length - 1])}`;
+}
+
+/**
+ * Genera y descarga el PDF de la Tabla Resumida (todas las unidades
+ * con registros en el periodo).
+ *
+ * Estructura:
+ *  1. Encabezado "Producción de las X unidades" + rango de fechas.
+ *  2. Una tabla independiente por unidad (Día | Fecha | Ruta | Depósito),
+ *     Lunes → Domingo, con "PARADA" si el día tuvo parada y "—" si no
+ *     hay registro; al pie, "Total depositado: $XX.XX" a la derecha.
+ *  3. Mini tabla consolidada (Unidad | Total depositado) + fila TOTAL.
+ *
+ * @param {Array}  datosUnidades — Salida de unidadesResumenPeriodo()
+ * @param {string} rangoFechas   — "DD/MM/AAAA hasta DD/MM/AAAA"
+ */
+function generarPDFTablaResumida(datosUnidades, rangoFechas) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
         mostrarModalAviso(
             "Librería no disponible",
@@ -1265,12 +1981,13 @@ function generarPDFTablaResumida(resumenUnidades, rangoFechas) {
     }
     const { jsPDF } = window.jspdf;
 
-    if (!resumenUnidades || !resumenUnidades.length) {
-        mostrarModalAviso("Sin datos", "No hay unidades registradas para generar la tabla resumida.");
+    const datos = (datosUnidades || [])
+        .filter((u) => u.dias && u.dias.some((d) => d.estado !== "sin_registro"));
+
+    if (!datos.length) {
+        mostrarModalAviso("Sin datos", "No hay unidades con registros en el periodo para generar la tabla resumida.");
         return;
     }
-
-    const datos = resumenUnidades.slice().sort((a, b) => num(a.unidad) - num(b.unidad));
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
@@ -1280,13 +1997,13 @@ function generarPDFTablaResumida(resumenUnidades, rangoFechas) {
     const utilW = pagAncho - M.l - M.r;
     const maxY  = () => pagAlto - M.b;
 
-    /* ---- Encabezado (título y rango a la izquierda) ---- */
+    /* ---- 1. Encabezado general ---- */
     let y = M.t;
     doc.setFont("helvetica", "bold").setFontSize(16).setTextColor(0, 0, 0);
     doc.text("Producción de las " + datos.length + " unidades", M.l, y);
     y += 7;
 
-    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(40, 40, 40);
     doc.text(rangoFechas, M.l, y);
     y += 10;
 
@@ -1294,73 +2011,118 @@ function generarPDFTablaResumida(resumenUnidades, rangoFechas) {
     doc.line(M.l, y, pagAncho - M.r, y);
     y += 8;
 
-    /* ---- Tabla: 60% de ancho, alineada a la derecha ---- */
-    const tablaW  = utilW * 0.60;
-    const tablaX   = pagAncho - M.r - tablaW;          /* derecho */
-    const colPct  = [0.55, 0.45];
-    const colW    = colPct.map(p => tablaW * p);
-    const colX    = [tablaX, tablaX + colW[0]];
+    /* ---- Columnas: Día | Fecha | Ruta | Depósito ---- */
+    const colPct = [0.16, 0.20, 0.40, 0.24];
+    const colW   = colPct.map((p) => utilW * p);
+    const colX   = colW.map((_, i) => M.l + colW.slice(0, i).reduce((a, b) => a + b, 0));
 
-    const PADX  = 3;
-    const LH    = 5;
-    const HHEAD = 9;
-    const HFILA = 10;
+    const PADX = 3;
+    const FH   = 5;   /* alto de fila de datos */
+    const FHS  = 7;   /* alto de cabecera */
 
-    /* ---- Cabecera de tabla (cuadrícula completa) ---- */
-    function dibujarCabecera(y0) {
-        doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
-        doc.rect(tablaX, y0, tablaW, HHEAD);
-        doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(0, 0, 0);
-        doc.text("Unidad", colX[0] + PADX, y0 + 6);
-        doc.text("Depósito total", colX[1] + colW[1] - PADX, y0 + 6, { align: "right" });
-        /* Línea vertical separadora */
-        doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
-        doc.line(colX[1], y0, colX[1], y0 + HHEAD);
-        return y0 + HHEAD;
+    function dibujarFila(y0, celdas, opts = {}) {
+        const alto = opts.alto || FH;
+        celdas.forEach((txt, i) => {
+            doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
+            if (opts.relleno) {
+                doc.setFillColor(opts.relleno[0], opts.relleno[1], opts.relleno[2]);
+                doc.rect(colX[i], y0, colW[i], alto, "F");
+            }
+            doc.rect(colX[i], y0, colW[i], alto);
+            doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+                .setFontSize(9).setTextColor(0, 0, 0);
+            const al = i === 3 ? "right" : "left";
+            doc.text(
+                txt,
+                al === "right" ? colX[i] + colW[i] - PADX : colX[i] + PADX,
+                y0 + alto / 2 + 1.1,
+                { align: al }
+            );
+        });
     }
 
-    y = dibujarCabecera(y);
+    /* ---- 2. Tabla independiente por unidad ---- */
+    const altoBloque = 6 + FHS + 7 * FH + 10 + 12;   /* título + cabecera + filas + margen total + separación */
 
-    /* ---- Filas (cuadrícula completa: rect por celda) ---- */
-    datos.forEach(d => {
-        if (y + HFILA > maxY()) {
+    datos.forEach((u) => {
+        if (y + altoBloque > maxY()) {
             doc.addPage();
-            y = dibujarCabecera(M.t);
+            y = M.t;
         }
 
-        doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(0, 0, 0);
-        doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
+        doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
+        doc.text("UNIDAD " + u.unidad, M.l, y);
+        y += 6;
 
-        /* Celda "Unidad" */
-        doc.rect(colX[0], y, colW[0], HFILA);
-        doc.text("Unidad " + d.unidad, colX[0] + PADX, y + LH);
+        dibujarFila(y, ["Día", "Fecha", "Ruta", "Depósito"], { bold: true, alto: FHS, relleno: [239, 239, 239] });
+        y += FHS;
 
-        /* Celda "Depósito total" */
-        doc.rect(colX[1], y, colW[1], HFILA);
-        doc.text(fmtMoneda(d.deposito), colX[1] + colW[1] - PADX, y + LH, { align: "right" });
+        u.dias.forEach((d) => {
+            const celdaDeposito =
+                d.estado === "sin_registro" ? "—"
+                : d.estado === "parada"     ? "PARADA"
+                : fmtMoneda(d.deposito);
+            dibujarFila(y, [d.dia, d.fecha, d.ruta || "—", celdaDeposito]);
+            y += FH;
+        });
 
-        y += HFILA;
+        /* Total depositado del periodo de la unidad, alineado a la derecha.
+           margen superior para separarlo del borde inferior de la tabla */
+        y += 10;
+
+        doc.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(0, 0, 0);
+        /* Etiqueta bajo la columna Ruta; el valor se alinea a la derecha
+           con la columna Depósito, dentro del margen de la hoja */
+        doc.text("Total depositado:", colX[2] + PADX, y);
+        doc.text(fmtMoneda(u.total), colX[3] + colW[3] - PADX, y, { align: "right" });
+
+        /* Separación inferior extra antes del siguiente bloque de unidad */
+        y += 12;
     });
 
-    /* ---- Fila TOTAL (cuadrícula completa) ---- */
-    if (y + HFILA + 4 > maxY()) {
+    /* ---- 3. Mini tabla de resumen consolidado (al final) ---- */
+    if (y + 48 > maxY()) {
         doc.addPage();
         y = M.t;
     }
 
+    y += 4;
+    doc.setFont("helvetica", "bold").setFontSize(13).setTextColor(0, 0, 0);
+    doc.text("Producción de las " + datos.length + " unidades", M.l, y);
+    y += 6;
+
+    doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(40, 40, 40);
+    doc.text(rangoFechas, M.l, y);
+    y += 7;
+
+    const miniW   = utilW * 0.55;
+    const miniX   = pagAncho - M.r - miniW;
+    const miniCol = [0.5, 0.5].map((p) => miniW * p);
+    const miniX0  = [miniX, miniX + miniCol[0]];
+
+    function dibujarMiniFila(y0, izq, der, opts = {}) {
+        const alto = opts.alto || 6.5;
+        doc.setDrawColor(0, 0, 0).setLineWidth(0.15);
+        doc.rect(miniX0[0], y0, miniCol[0], alto);
+        doc.rect(miniX0[1], y0, miniCol[1], alto);
+        doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+            .setFontSize(9).setTextColor(0, 0, 0);
+        doc.text(izq, miniX0[0] + PADX, y0 + alto / 2 + 1.1);
+        doc.text(der, miniX0[1] + miniCol[1] - PADX, y0 + alto / 2 + 1.1, { align: "right" });
+    }
+
+    dibujarMiniFila(y, "Unidad", "Total depositado", { bold: true, alto: 7 });
+    y += 7;
+
+    const depGlobal = datos.reduce((s, d) => s + d.total, 0);
+    datos.forEach((d) => {
+        dibujarMiniFila(y, "Unidad " + d.unidad, fmtMoneda(d.total));
+        y += 6.5;
+    });
+
     y += 1;
-    const depGlobal = datos.reduce((s, d) => s + d.deposito, 0);
-
-    doc.setDrawColor(0, 0, 0).setLineWidth(0.4);
-    /* Borde superior de TOTAL */
-    doc.rect(tablaX, y, tablaW, HFILA);
-    /* Separador interno */
-    doc.setDrawColor(0, 0, 0).setLineWidth(0.2);
-    doc.line(colX[1], y, colX[1], y + HFILA);
-
-    doc.setFont("helvetica", "bold").setFontSize(11).setTextColor(0, 0, 0);
-    doc.text("TOTAL", colX[0] + PADX, y + LH);
-    doc.text(fmtMoneda(depGlobal), colX[1] + colW[1] - PADX, y + LH, { align: "right" });
+    dibujarMiniFila(y, "TOTAL", fmtMoneda(depGlobal), { bold: true, alto: 7 });
+    y += 7;
 
     /* ---- Pie de página ---- */
     const nPag = doc.getNumberOfPages();
@@ -1388,105 +2150,203 @@ function imprimirReporteEnPantalla() {
         return;
     }
 
-    const t      = totalesUnidad(unitId);
-    const semana = construirSemanaCompleta(regs);
+    /* Resumen con lógica de arrastre de saldos (admin pendiente) */
+    const resumen = resumenSemana(regs);
+    const semanaEnriquecida = resumen.semana;
 
-    /* ---- Construir filas de la tabla (7 días fijos) ---- */
-    let filasHTML = "";
-    semana.forEach(d => {
-        const esParada    = d.estadoDia === "parada";
+    /* Construir bloques HTML para impresión */
+    let bloquesHTML = "";
+    semanaEnriquecida.forEach(d => {
         const sinRegistro = d.estadoDia === "sin_registro";
+        const esParada = d.estadoDia === "parada";
+        const r = d.registro;
 
-        let depTxt, rutaTxt;
+        const badgeTxt = esParada ? "PARADA" : (sinRegistro ? "Sin registro" : "PRODUCCIÓN");
+        const badgeCls = esParada ? "print-badge-parada" : (sinRegistro ? "print-badge-sin" : "print-badge-prod");
+
+        let detalle = "";
         if (sinRegistro) {
-            rutaTxt = "&mdash;";
-            depTxt  = "&mdash;";
+            detalle = '<div class="print-day-empty">Sin registros para este día.</div>';
         } else if (esParada) {
-            rutaTxt = esc(d.ruta);
-            depTxt  = "<strong>PARADA</strong>";
+            const adminMonto = r ? num(r.administracion) : 0;
+            detalle = '<div class="print-day-detail">' +
+                '<div class="print-row print-row-ruta"><span>Ruta</span><span>' + esc(r ? (r.ruta || "-") : "-") + '</span></div>' +
+                '<div class="print-row"><span>Estado</span><span>Unidad en PARADA</span></div>' +
+                (adminMonto > 0 ? '<div class="print-row"><span>Administración de la parada</span><span>-' + fmtMoneda(adminMonto) + '</span></div>' : '') +
+                '</div>';
         } else {
-            rutaTxt = esc(d.ruta);
-            depTxt  = d.deposito > 0 ? fmtMoneda(d.deposito) : "&mdash;";
+            const prod = num(r.produccion);
+            const comb = num(r.combustible);
+            const admin = num(r.administracion);
+            const ali = num(r.alimentacionLimpieza);
+            const condMonto = num(r.conductorMonto);
+            const condPct = num(r.conductorPorcentaje || 18);
+            const gasto = r.gastoAdicional ? num(r.gastoAdicional.monto) : 0;
+            const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
+            const adminPend = d.lineaAdminPendiente || 0;
+            const subCombustible = prod - comb;
+            const subRestante = prod - comb - admin - ali - gasto;
+
+            detalle = '<div class="print-day-detail">' +
+                '<div class="print-row print-row-ruta"><span>Ruta</span><span>' + esc(r.ruta || "-") + '</span></div>' +
+                '<div class="print-sep"></div>' +
+                '<div class="print-row print-row-ingreso"><span>Producción total</span><span>' + fmtMoneda(prod) + '</span></div>' +
+                '<div class="print-row"><span>- Combustible</span><span>-' + fmtMoneda(comb) + '</span></div>' +
+                '<div class="print-row print-row-sub"><span>Subtotal</span><span>' + fmtMoneda(subCombustible) + '</span></div>' +
+                '<div class="print-row"><span>- Administración</span><span>-' + fmtMoneda(admin) + '</span></div>' +
+                '<div class="print-row"><span>- Alimentación + limpieza</span><span>-' + fmtMoneda(ali) + '</span></div>' +
+                (gasto > 0 ? '<div class="print-row"><span>- ' + esc(conceptoGasto || "Gasto adicional") + '</span><span>-' + fmtMoneda(gasto) + '</span></div>' : '') +
+                '<div class="print-row print-row-sub"><span>Subtotal</span><span>' + fmtMoneda(subRestante) + '</span></div>' +
+                '<div class="print-row"><span>- Conductor (' + nf.format(condPct) + '%)</span><span>-' + fmtMoneda(condMonto) + '</span></div>' +
+                (adminPend > 0 ? '<div class="print-row print-row-pend"><span>- Administración pendiente (' + _textoOrigenPendiente(d.lineaAdminPendienteDias) + ')</span><span>-' + fmtMoneda(adminPend) + '</span></div>' : '') +
+                '<div class="print-row print-row-dep"><span>DEPÓSITO</span><span class="print-dep">' + fmtMoneda(depositoAjustado(d)) + '</span></div>' +
+                '</div>';
         }
 
-        filasHTML +=
-            "<tr>" +
-                "<td>" + esc(d.dia) + "</td>" +
-                "<td>" + d.fecha + "</td>" +
-                "<td>" + rutaTxt + "</td>" +
-                "<td class=\"num\">" + depTxt + "</td>" +
-            "</tr>";
+        bloquesHTML +=
+            '<div class="print-day-block">' +
+                '<div class="print-day-header">' +
+                    '<div class="print-day-title"><strong>' + esc(d.dia) + '</strong> — ' + d.fecha + '</div>' +
+                    '<span class="print-badge ' + badgeCls + '">' + badgeTxt + '</span>' +
+                '</div>' +
+                '<div class="print-day-body">' + detalle + '</div>' +
+            '</div>';
     });
 
-    /* ---- Resumen de todas las unidades (alineado a la derecha, 60%) ---- */
-    const resumen = unidadesRegistradas()
-        .map(u => ({ unidad: u, ...totalesUnidad(u) }))
-        .sort((a, b) => num(a.unidad) - num(b.unidad));
+    /* Totales semanales (ajustados con admin pendiente) */
+    const totalProd = resumen.totalProduccion;
+    const totalDep = resumen.totalDeposito;
 
+    /* Desglose de todas las unidades con registros en el periodo */
+    const resumenUnidades = unidadesResumenPeriodo();
+    const depGlobal = resumenUnidades.reduce((s, d) => s + d.total, 0);
+    const rangoFechas = textoPeriodoSemana();
+    const rangoResumen = textoRangoPeriodo();
+
+    /* Tablas individuales por unidad (Día | Fecha | Ruta | Depósito) */
+    let tablasUnidadesHTML = "";
+    resumenUnidades.forEach(u => {
+        let filas = "";
+        u.dias.forEach(d => {
+            const celda = d.estado === "sin_registro" ? "—"
+                : d.estado === "parada" ? "PARADA"
+                : fmtMoneda(d.deposito);
+            filas += '<tr><td>' + d.dia + '</td><td>' + d.fecha + '</td><td>' + esc(d.ruta) + '</td><td class="num">' + celda + '</td></tr>';
+        });
+        tablasUnidadesHTML +=
+            '<div class="tabla-unidad-wrap">' +
+                '<h3 class="unit-title">Unidad ' + esc(u.unidad) + '</h3>' +
+                '<table class="tabla-unidad">' +
+                    '<thead><tr><th>Día</th><th>Fecha</th><th>Ruta</th><th>Depósito</th></tr></thead>' +
+                    '<tbody>' + filas + '</tbody>' +
+                    '<tfoot><tr class="total-unidad"><td colspan="3">Total depositado</td><td class="num">' + fmtMoneda(u.total) + '</td></tr></tfoot>' +
+                '</table>' +
+            '</div>';
+    });
+
+    /* Mini tabla consolidada (Unidad | Total depositado) */
     let resumenFilas = "";
-    resumen.forEach(d => {
-        resumenFilas +=
-            "<tr>" +
-                "<td>Unidad " + esc(d.unidad) + "</td>" +
-                "<td class=\"num\">" + fmtMoneda(d.deposito) + "</td>" +
-            "</tr>";
+    resumenUnidades.forEach(d => {
+        resumenFilas += '<tr><td>Unidad ' + esc(d.unidad) + '</td><td class="num">' + fmtMoneda(d.total) + '</td></tr>';
     });
-    const depGlobal = resumen.reduce((s, d) => s + d.deposito, 0);
-    const todasFechas = registros.map(r => r.fecha).sort();
-    const rangoFechas = fmtFecha(todasFechas[0]) + " hasta " + fmtFecha(todasFechas[todasFechas.length - 1]);
 
-    /* ---- HTML completo de la ventana de impresión ---- */
-    const html = "<!DOCTYPE html><html lang=\"es\"><head>" +
-        "<meta charset=\"UTF-8\">" +
-        "<title>Reporte Unidad " + esc(unitId) + "</title>" +
-        "<style>" +
-            "*{box-sizing:border-box;margin:0;padding:0}" +
-            "body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:24px}" +
-            "h1{font-size:22px;margin-bottom:12px}" +
-            "hr.sep{border:none;border-top:2px solid #000;margin-bottom:16px}" +
-            "table{border-collapse:collapse}" +
-            "table.main{width:100%;margin-bottom:8px}" +
-            "th,td{border:1px solid #000;padding:8px 12px;font-size:11px;text-align:left}" +
-            "th{font-weight:bold;background:#fff}" +
-            "td.num{text-align:right}" +
-            ".total-line{margin-top:12px;text-align:right;font-weight:bold;font-size:12px}" +
-            ".footer{margin-top:32px;font-size:7px;color:#888;display:flex;justify-content:space-between}" +
-            ".resumen-section{margin-top:28px}" +
-            ".resumen-section h2{font-size:14px;margin-bottom:6px}" +
-            ".resumen-section .rango{font-size:10px;color:#666;margin-bottom:10px}" +
-            "table.resumen{width:60%;margin-left:auto;margin-right:0}" +
-            "@media print{" +
-                "@page{size:A4 portrait;margin:15mm 12mm}" +
-                "body{padding:0;background:#fff}" +
-                "table,thead,tbody,tfoot,tr,td,th{page-break-inside:avoid}" +
-                "thead{display:table-header-group}" +
-            "}" +
-        "</style>" +
-        "</head><body>" +
-        "<h1>UNIDAD " + esc(unitId) + "</h1>" +
-        "<hr class=\"sep\">" +
-        "<table class=\"main\">" +
-            "<thead><tr>" +
-                "<th>Día</th><th>Fecha</th><th>Ruta</th><th>Depósito</th>" +
-            "</tr></thead>" +
-            "<tbody>" + filasHTML + "</tbody>" +
-        "</table>" +
-        "<div class=\"total-line\">Total depositado: " + fmtMoneda(t.deposito) + "</div>" +
-        "<div class=\"resumen-section\">" +
-            "<h2>Producción de las " + resumen.length + " unidades</h2>" +
-            "<div class=\"rango\">" + rangoFechas + "</div>" +
-            "<table class=\"resumen\">" +
-                "<thead><tr><th>Unidad</th><th>Depósito total</th></tr></thead>" +
-                "<tbody>" + resumenFilas +
-                    "<tr><td><strong>TOTAL</strong></td><td class=\"num\"><strong>" + fmtMoneda(depGlobal) + "</strong></td></tr>" +
-                "</tbody>" +
-            "</table>" +
-        "</div>" +
-        "<div class=\"footer\">" +
-            "<span>Control Semanal de Unidades</span>" +
-            "<span>Generado: " + ahoraTexto() + "</span>" +
-        "</div>" +
-        "</body></html>";
+    /* Observaciones consolidadas — solo al final del reporte */
+    const observaciones = semanaEnriquecida
+        .filter((d) => d.registro && (d.registro.observaciones || "").trim())
+        .map((d) => ({ dia: d.dia, fecha: d.fecha, texto: d.registro.observaciones.trim() }));
+    const observacionesHTML = observaciones.length
+        ? '<div class="obs-section">' +
+            '<h2>Observaciones de la semana</h2>' +
+            observaciones.map((o) =>
+                '<div class="obs-item"><span class="obs-dia">' + esc(o.dia) + ' ' + esc(o.fecha) + '</span><span class="obs-texto">' + esc(o.texto) + '</span></div>'
+            ).join('') +
+          '</div>'
+        : '';
+
+    const html = '<!DOCTYPE html><html lang="es"><head>' +
+        '<meta charset="UTF-8">' +
+        '<title>Reporte Unidad ' + esc(unitId) + '</title>' +
+        '<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0}' +
+            'body{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:24px}' +
+            'h1{font-size:22px;margin-bottom:4px}' +
+            '.subtitle{font-size:13px;color:#000;margin-bottom:12px}' +
+            '.subtitle .periodo{font-size:11px;color:#1a1a1a;margin-top:2px}' +
+            'hr.sep{border:none;border-top:2px solid #000;margin:10px 0 16px}' +
+            '.print-day-block{page-break-inside:avoid;margin-bottom:16px;border:1px solid #999;border-radius:4px;overflow:hidden}' +
+            '.print-day-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f0f0f0;border-bottom:1px solid #999}' +
+            '.print-day-title{font-size:13px}' +
+            '.print-badge{font-size:9px;font-weight:bold;padding:2px 8px;border-radius:10px;text-transform:uppercase;border:1px solid transparent;color:#fff}' +
+            '.print-badge-prod{background:#07883f;color:#fff}' +
+            '.print-badge-parada{background:#c62828;color:#fff}' +
+            '.print-badge-sin{background:#6b7280;color:#fff}' +
+            '.print-day-body{padding:10px 12px}' +
+            '.print-day-detail{font-size:11.5px}' +
+            '.print-day-empty{color:#111;font-style:italic;padding:8px 0}' +
+            '.print-row{display:flex;justify-content:space-between;padding:3px 0;color:#000}' +
+            '.print-row-ruta{font-weight:bold}' +
+            '.print-row-ingreso span:last-child{font-weight:bold;color:#000}' +
+            '.print-row-pend{background:#f5f5f5;padding:4px 8px;margin:4px -8px;border-radius:3px}' +
+            '.print-row-sub{font-weight:bold;border-top:1px solid #bbb;padding-top:5px;margin-top:3px}' +
+            '.print-row-dep{font-size:14px;font-weight:bold;border-top:2px solid #000;padding-top:6px;margin-top:3px}' +
+            '.print-sep{border-top:1px solid #eee;margin:4px 0}' +
+            '.print-dep{color:#000;font-size:14px}' +
+            '.total-line{margin-top:12px;text-align:right;font-weight:bold;font-size:13px}' +
+            '.obs-section{margin-top:28px;border:1px solid #999;border-radius:4px;padding:12px 14px;page-break-inside:avoid}' +
+            '.obs-section h2{font-size:13px;margin-bottom:8px}' +
+            '.obs-item{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-top:1px solid #eee}' +
+            '.obs-item:first-of-type{border-top:none}' +
+            '.obs-dia{font-weight:bold;white-space:nowrap;color:#000}' +
+            '.obs-texto{font-weight:600;color:#000;text-align:right}' +
+            '.footer{margin-top:32px;font-size:7px;color:#888;display:flex;justify-content:space-between}' +
+            '.resumen-section{margin-top:28px}' +
+            '.resumen-section h2{font-size:14px;margin-bottom:6px}' +
+            '.resumen-section .rango{font-size:10px;color:#1a1a1a;margin-bottom:10px}' +
+            '.tabla-unidad-wrap{page-break-inside:avoid;margin-bottom:18px}' +
+            '.unit-title{font-size:12px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.4px}' +
+            'table.tabla-unidad{width:100%;border-collapse:collapse}' +
+            'table.tabla-unidad th,table.tabla-unidad td{border:1px solid #999;padding:4px 7px;font-size:10.5px;text-align:left}' +
+            'table.tabla-unidad th{background:#f0f0f0;font-weight:bold}' +
+            'table.tabla-unidad tfoot td{border-top:2px solid #000;font-weight:bold}' +
+            '.resumen-consolidado{margin-top:24px}' +
+            'table.resumen{width:60%;margin-left:auto;margin-right:0;border-collapse:collapse;page-break-inside:avoid}' +
+            'table.resumen th,table.resumen td{border:1px solid #000;padding:6px 10px;font-size:11px;text-align:left}' +
+            'table.resumen th{font-weight:bold;background:#fff}' +
+            'td.num{text-align:right}' +
+            '@media print{' +
+                '@page{size:A4 portrait;margin:15mm 12mm}' +
+                'body{padding:0;background:#fff}' +
+                '.print-day-block{page-break-inside:avoid}' +
+                '.day-block{page-break-inside:avoid}' +
+            '}' +
+        '</style>' +
+        '</head><body>' +
+        '<h1>REPORTE SEMANAL</h1>' +
+        '<div class="subtitle">Unidad ' + esc(unitId) +
+            '<div class="periodo">Periodo: ' + rangoFechas + '</div>' +
+        '</div>' +
+        '<hr class="sep">' +
+        bloquesHTML +
+        '<div class="total-line">Total depositado: ' + fmtMoneda(totalDep) + '</div>' +
+        observacionesHTML +
+        '<div class="resumen-section">' +
+            '<h2>Producción de las ' + resumenUnidades.length + ' unidades</h2>' +
+            '<div class="rango">' + rangoResumen + '</div>' +
+            tablasUnidadesHTML +
+            '<h2 class="resumen-consolidado">Producción de las ' + resumenUnidades.length + ' unidades</h2>' +
+            '<div class="rango">' + rangoResumen + '</div>' +
+            '<table class="resumen">' +
+                '<thead><tr><th>Unidad</th><th>Total depositado</th></tr></thead>' +
+                '<tbody>' + resumenFilas +
+                    '<tr><td><strong>TOTAL</strong></td><td class="num"><strong>' + fmtMoneda(depGlobal) + '</strong></td></tr>' +
+                '</tbody>' +
+            '</table>' +
+        '</div>' +
+        '<div class="footer">' +
+            '<span>Control Semanal de Unidades</span>' +
+            '<span>Generado: ' + ahoraTexto() + '</span>' +
+        '</div>' +
+        '</body></html>';
 
     const win = window.open("", "_blank", "width=800,height=600");
     if (!win) {
@@ -1518,11 +2378,12 @@ function vincularBarraReportes() {
     on("downloadSummaryPdfBtn", "click", () => {
         ejecutarAccionReporte("generar la tabla resumida", async () => {
             if (!(await prepararReporte())) return;
-            const resumen = unidadesRegistradas()
-                .map(u => ({ unidad: u, ...totalesUnidad(u) }));
-            const fechas  = registros.map(r => r.fecha).sort();
-            const rango   = fmtFecha(fechas[0]) + " hasta " + fmtFecha(fechas[fechas.length - 1]);
-            generarPDFTablaResumida(resumen, rango);
+            const unidades = unidadesResumenPeriodo();
+            if (!unidades.length) {
+                mostrarModalAviso("Sin datos", "No hay unidades con registros en el periodo para generar la tabla resumida.");
+                return;
+            }
+            generarPDFTablaResumida(unidades, textoRangoPeriodo());
         });
     });
 
@@ -1571,13 +2432,18 @@ async function inicializarApp() {
         console.error("Error al inicializar los datos desde Supabase:", error);
     }
 
-    /* 2) Auto-selecciona la primera unidad disponible */
-    if (registros.length && !unidadSeleccionada) {
-        unidadSeleccionada = unidadesRegistradas()
-            .sort((a, b) => num(a) - num(b))[0];
+    /* 2) Semana por defecto: la más reciente con registros
+          (o la actual si aún no hay datos) */
+    if (!semanaSeleccionada) {
+        semanaSeleccionada = semanaPorDefecto() || null;
     }
 
-    /* 3) AHORA sí: pinta métricas, tabla e historial */
+    /* 3) Auto-selecciona la primera unidad disponible */
+    if (registros.length && !unidadSeleccionada) {
+        unidadSeleccionada = unidadRecomendada();
+    }
+
+    /* 4) AHORA sí: pinta métricas, tabla e historial */
     renderTodo();
 
     console.log(`[init] Interfaz lista. Unidad mostrada: ${unidadSeleccionada ?? "ninguna"}`);
