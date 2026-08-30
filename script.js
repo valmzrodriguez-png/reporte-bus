@@ -1,7 +1,7 @@
 "use strict";
 
 /* Marcador para confirmar en consola qué versión ejecuta el navegador */
-console.log("%c[script.js] v15 — total de unidad alineado bajo Ruta/Depósito dentro del margen (PDF)", "color:#333;font-weight:bold;");
+console.log("%c[script.js] v18 — Fin de semana (PARADA): CASO A (domingo→sábado), CASO B (sábado+domingo→viernes), Regla General: último día con producción de la misma semana; visible en PDF/impresión", "color:#333;font-weight:bold;");
 
 /* Ningún error puede quedar invisible */
 window.addEventListener("error", (e) => {
@@ -1113,7 +1113,10 @@ on("semanaSelect", "change", (e) => {
 /**
  * Construye el HTML de un bloque diario para el reporte detallado.
  * Muestra encabezado del día, detalle operativo con descuentos
- * con signo negativo, subtotal parcial y depósito destacado.
+ * con signo negativo, subtotales y depósito destacado.  El "Subtotal"
+ * resultante ya incluye el Conductor y la Administración pendiente y
+ * coincide con el DEPÓSITO.  Los días en PARADA solo muestran el
+ * encabezado con su etiqueta.
  *
  * @param {Object} dia — Objeto enriquecido de construirSemanaCompleta()
  *   más lineaAdminPendiente (number|null) y
@@ -1136,24 +1139,9 @@ function construirBloqueDia(dia) {
                 Sin registros para este día.
             </div>`;
     } else if (esParada) {
-        const adminMonto = r ? num(r.administracion) : 0;
-        contenidoDetalle = `
-            <div class="day-detail-grid">
-                <div class="day-detail-row">
-                    <span class="day-detail-label">Ruta</span>
-                    <span class="day-detail-value">${esc(r ? (r.ruta || "-") : "-")}</span>
-                </div>
-                <div class="day-detail-row">
-                    <span class="day-detail-label">Estado</span>
-                    <span class="day-detail-value">Unidad en PARADA — No genera producción</span>
-                </div>
-                ${adminMonto > 0 ? `
-                <div class="day-detail-row">
-                    <span class="day-detail-label">Administración de la parada</span>
-                    <span class="day-detail-value">-${fmtMoneda(adminMonto)}</span>
-                </div>
-                ` : ""}
-            </div>`;
+        /* PARADA visual simplificada: solo el encabezado del día
+           con la fecha y la etiqueta "PARADA". */
+        contenidoDetalle = "";
     } else {
         /* Día con producción */
         const prod = num(r.produccion);
@@ -1166,13 +1154,14 @@ function construirBloqueDia(dia) {
         const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
         const adminPend = dia.lineaAdminPendiente || 0;
 
-        /* Subtotales parciales (no incluyen conductor ni admin pendiente) */
+        /* Subtotal tras solo el combustible */
         const subCombustible = prod - comb;
-        const subRestante = prod - comb - admin - ali - gasto;
 
-        /* DEPÓSITO = Producción − (Combustible + Administración + Alimentación
-           + Gasto extra + Conductor + Administración pendiente) */
-        const depositoFinal = depositoAjustado(dia);
+        /* Subtotal resultante: Producción − Combustible − Administración
+           − Alimentación/Limpieza − Gasto extra − Conductor − Admin pendiente.
+           Tanto el Conductor como la Administración pendiente se descuentan
+           directamente de este Subtotal, que cierra la cifra de DEPÓSITO. */
+        const subResultante = depositoAjustado(dia);
 
         contenidoDetalle = `
             <div class="day-detail-grid">
@@ -1215,11 +1204,6 @@ function construirBloqueDia(dia) {
                 </div>
                 ` : ""}
 
-                <div class="day-detail-row day-detail-subtotal">
-                    <span class="day-detail-label">Subtotal</span>
-                    <span class="day-detail-value">${fmtMoneda(subRestante)}</span>
-                </div>
-
                 <div class="day-detail-row">
                     <span class="day-detail-label">- Conductor (${nf.format(condPct)}%)</span>
                     <span class="day-detail-value">-${fmtMoneda(condMonto)}</span>
@@ -1232,9 +1216,14 @@ function construirBloqueDia(dia) {
                 </div>
                 ` : ""}
 
+                <div class="day-detail-row day-detail-subtotal">
+                    <span class="day-detail-label">Subtotal</span>
+                    <span class="day-detail-value">${fmtMoneda(subResultante)}</span>
+                </div>
+
                 <div class="day-detail-row day-detail-deposito">
                     <span class="day-detail-label">DEPÓSITO</span>
-                    <span class="day-detail-value">${fmtMoneda(depositoFinal)}</span>
+                    <span class="day-detail-value">${fmtMoneda(subResultante)}</span>
                 </div>
             </div>`;
     }
@@ -1248,9 +1237,7 @@ function construirBloqueDia(dia) {
                 </div>
                 <span class="day-block-badge ${badgeClase}">${badgeTexto}</span>
             </div>
-            <div class="day-block-body">
-                ${contenidoDetalle}
-            </div>
+            ${contenidoDetalle ? `<div class="day-block-body">${contenidoDetalle}</div>` : ""}
         </div>`;
 }
 
@@ -1504,12 +1491,25 @@ cursor.setDate(cursor.getDate() + 1);
  * Recorre la semana completa (Lunes → Domingo) y marca en cada día
  * cuánta "Administración pendiente" acumulada se debe descontar.
  *
- * Regla:
+ * Reglas generales (Lunes → Viernes):
  *  - Un día en "PARADA" acumula su administración como pendiente.
  *  - El primer día con actividad que le siga recibe la línea
- *    "- Administración pendiente (día anterior)" — con el nombre de los
- *    días en PARADA que generaron el saldo, ej. "(lunes)" — y el
- *    acumulado vuelve a cero.
+ *    "- Administración pendiente (…)" — con el nombre de los días en
+ *    PARADA que generaron el saldo, ej. "(lunes)" — y el acumulado
+ *    vuelve a cero.
+ *
+ * Regla del fin de semana (último día con producción de la misma semana):
+ *  - Si el DOMINGO (o el SÁBADO) estuvo en PARADA y el DOMINGO no fue de
+ *    producción, su administración NO queda flotante: se descuenta dentro
+ *    de la misma semana, en el último día previo que sí tuvo producción
+ *    (Sábado, Viernes, etc.) → "- Administración pendiente (domingo)",
+ *    "- Administración pendiente (sábado y domingo)", "- Administración
+ *    pendiente (sábado)".
+ *  - Si el DOMINGO sí tuvo producción, la acumulación natural hacia
+ *    adelante absorbe lo pendiente del Sábado sin redirigir nada.
+ *  - Si en la misma semana no hubo días previos con producción (semana
+ *    completa en PARADA), el saldo se acumula y se descuenta en la primera
+ *    actividad de la semana siguiente.
  *
  * @param {Array} semana — Resultado de construirSemanaCompleta()
  * @returns {Array} Semana con las propiedades extra:
@@ -1517,9 +1517,84 @@ cursor.setDate(cursor.getDate() + 1);
  *   lineaAdminPendienteDias (Array<string>|null, nombres de los días de origen)
  */
 function enriquecerSemana(semana) {
+    /* Redirecciones del fin de semana: fechaISO del día destino (con
+       producción) → [{ monto, dias }]. */
+    const redirecciones = new Map();
+    /* Días PARADA del fin de semana cuya administración se descuenta
+       hacia atrás y, por tanto, no deben acumularse hacia adelante. */
+    const fuentesRedirigidas = new Set();
+
+    function agregarRedireccion(destino, monto, dias, incluirCero = false) {
+        if (!destino || (monto <= 0 && !incluirCero)) return;
+        if (!redirecciones.has(destino.fechaISO)) redirecciones.set(destino.fechaISO, []);
+        redirecciones.get(destino.fechaISO).push({ monto, dias });
+    }
+
+    /* Último día con PRODUCCIÓN dentro de la MISMA semana: retrocede desde
+       el Sábado y se detiene al llegar al Domingo de la semana previa (fin
+       del rango de la semana en curso). Devuelve null si no hubo ninguno. */
+    function ultimoProduccionSemana(semana, iSabado) {
+        for (let j = iSabado; j >= 0; j--) {
+            if (semana[j].dia === "Domingo") return null;
+            if (semana[j].estadoDia === "produccion") return semana[j];
+        }
+        return null;
+    }
+
+    /* Regla del fin de semana (misma semana en curso):
+       CASO A → Domingo PARADA con Sábado PRODUCCIÓN: la administración de la
+           parada del domingo se descuenta INMEDIATAMENTE en el Sábado.
+       CASO B → Sábado y Domingo PARADA consecutivos: lo acumulado de ambos se
+           descuenta en el último día con PRODUCCIÓN de la semana (Viernes).
+       REGLA GENERAL → Toda administración por PARADA del fin de semana se
+           descuenta del último día con PRODUCCIÓN de la misma semana (Sábado,
+           Viernes, etc.); nunca queda flotante para la semana siguiente. */
+    for (let i = 0; i + 1 < semana.length; i++) {
+        const sabado = semana[i];
+        const domingo = semana[i + 1];
+        if (sabado.dia !== "Sábado" || domingo.dia !== "Domingo") continue;
+
+        const sabParada = sabado.estadoDia === "parada" && !!sabado.registro;
+        const domParada = domingo.estadoDia === "parada" && !!domingo.registro;
+        const sabProduccion = sabado.estadoDia === "produccion";
+        const domProduccion = domingo.estadoDia === "produccion";
+
+        /* Si el Domingo sí produjo, la acumulación natural hacia adelante
+           ya descuenta cualquier saldo del Sábado; no se redirige nada. */
+        if (domProduccion) continue;
+
+        const sabAdmin = sabParada ? num(sabado.registro.administracion) : 0;
+        const domAdmin = domParada ? num(domingo.registro.administracion) : 0;
+
+        /* CASO A: deducción inmediata en el Sábado */
+        if (sabProduccion && domParada) {
+            agregarRedireccion(sabado, domAdmin, ["Domingo"], true);
+            fuentesRedirigidas.add(domingo.fechaISO);
+            continue;
+        }
+
+        /* CASO B / REGLA GENERAL: solo Sábado y/o Domingo PARADA */
+        if (!sabParada && !domParada) continue;
+        const destino = ultimoProduccionSemana(semana, i);
+
+        /* Sin producción previa dentro de la semana (semana completa en
+           PARADA): el saldo se acumula y fluye a la semana siguiente. */
+        if (!destino) continue;
+
+        if (sabParada) {
+            agregarRedireccion(destino, sabAdmin, ["Sábado"], true);
+            fuentesRedirigidas.add(sabado.fechaISO);
+        }
+        if (domParada) {
+            agregarRedireccion(destino, domAdmin, ["Domingo"], true);
+            fuentesRedirigidas.add(domingo.fechaISO);
+        }
+    }
+
     let adminPendiente = 0;
     let adminPendienteDias = [];
-    return semana.map(d => {
+
+    const enriquecidos = semana.map(d => {
         const esParada = d.estadoDia === "parada";
         const sinRegistro = d.estadoDia === "sin_registro";
         const r = d.registro;
@@ -1533,8 +1608,11 @@ function enriquecerSemana(semana) {
             lineaAdminPendienteDias = adminPendienteDias.slice();
         }
 
-        /* Un día PARADA acumula su administración */
-        if (esParada && r) {
+        /* Un día PARADA acumula su administración como pendiente.
+           Excepción: los días del fin de semana redirigidos hacia atrás
+           no acumulan, porque su administración ya se descuenta en un
+           día previo con producción. */
+        if (esParada && r && !fuentesRedirigidas.has(d.fechaISO)) {
             const adminDelDia = num(r.administracion);
             if (adminDelDia > 0) {
                 adminPendiente += adminDelDia;
@@ -1550,6 +1628,18 @@ function enriquecerSemana(semana) {
 
         return { ...d, lineaAdminPendiente, lineaAdminPendienteDias };
     });
+
+    /* Aplica las redirecciones del fin de semana sobre el día destino */
+    for (const d of enriquecidos) {
+        const lista = redirecciones.get(d.fechaISO);
+        if (!lista) continue;
+        for (const item of lista) {
+            d.lineaAdminPendiente = (d.lineaAdminPendiente || 0) + item.monto;
+            d.lineaAdminPendienteDias = (d.lineaAdminPendienteDias || []).concat(item.dias);
+        }
+    }
+
+    return enriquecidos;
 }
 
 /* Texto de origen de la administración pendiente según los días
@@ -1707,8 +1797,7 @@ function generarPDFReporteSemanal(unidadId, registros) {
         if (sinRegistro) {
             lineasNecesarias = 3;
         } else if (esParada) {
-            lineasNecesarias = 4;
-            if (r && num(r.administracion) > 0) lineasNecesarias += 2;
+            lineasNecesarias = 3;
         } else {
             lineasNecesarias = 13; /* Producción + desglose con subtotales + depósito */
             if (r && r.gastoAdicional && num(r.gastoAdicional.monto) > 0) lineasNecesarias++;
@@ -1760,17 +1849,6 @@ function generarPDFReporteSemanal(unidadId, registros) {
         }
 
         if (esParada) {
-            drawText("Ruta: " + (r ? (r.ruta || "-") : "-"), M.l + 3, y + 3, { bold: true, size: 9.5 });
-            y += 6;
-            drawText("Estado: Unidad en PARADA — No genera producción", M.l + 3, y + 3, { color: 40 });
-            y += 6;
-
-            if (r && num(r.administracion) > 0) {
-                drawText("Administración de la parada:", M.l + 3, y + 3, { size: 9 });
-                drawText("-" + fmtMoneda(num(r.administracion)), M.l + utilW - 3, y + 3, { align: "right", color: 0 });
-                y += 6;
-            }
-
             drawLine(M.l, y, M.l + utilW);
             y += 6;
             return;
@@ -1787,9 +1865,14 @@ function generarPDFReporteSemanal(unidadId, registros) {
         const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
         const adminPend = dia.lineaAdminPendiente || 0;
 
-        /* Subtotales parciales */
+        /* Subtotal tras solo el combustible */
         const subCombustible = prod - comb;
-        const subRestante = prod - comb - admin - ali - gasto;
+
+        /* Subtotal resultante: Producción − Combustible − Administración
+           − Alimentación/Limpieza − Gasto extra − Conductor − Admin pendiente.
+           Conductor y Administración pendiente se descuentan directamente
+           de este Subtotal, que cierra la cifra de DEPÓSITO. */
+        const subResultante = depositoAjustado(dia);
 
         drawText("Ruta: " + (r.ruta || "-"), M.l + 3, y + 3, { bold: true, size: 9.5 });
         y += 7;
@@ -1826,22 +1909,22 @@ function generarPDFReporteSemanal(unidadId, registros) {
             y += 5;
         }
 
-        /* Subtotal (restante) */
-        drawText("Subtotal", M.l + 3, y + 3, { bold: true, size: FS });
-        drawText(fmtMoneda(subRestante), M.l + utilW - 3, y + 3, { align: "right", bold: true });
-        y += 6;
-
         /* - Conductor (%) */
         drawText("- Conductor (" + nf.format(condPct) + "%)", M.l + 3, y + 3, { size: FS });
         drawText("-" + fmtMoneda(condMonto), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
         y += 5;
 
-        /* - Administración pendiente (día anterior) */
+        /* - Administración pendiente */
         if (adminPend > 0) {
             drawText("- Administración pendiente (" + _textoOrigenPendiente(dia.lineaAdminPendienteDias) + ")", M.l + 3, y + 3, { size: FS });
             drawText("-" + fmtMoneda(adminPend), M.l + utilW - 3, y + 3, { align: "right", color: 0, size: FS });
             y += 5;
         }
+
+        /* Subtotal resultante (incluye Conductor y Administración pendiente) */
+        drawText("Subtotal", M.l + 3, y + 3, { bold: true, size: FS });
+        drawText(fmtMoneda(subResultante), M.l + utilW - 3, y + 3, { align: "right", bold: true });
+        y += 6;
 
         /* DEPÓSITO (cifra final con línea superior) */
         doc.setDrawColor(0, 0, 0).setLineWidth(0.6);
@@ -1851,7 +1934,7 @@ function generarPDFReporteSemanal(unidadId, registros) {
         doc.setFillColor(245, 245, 245);
         doc.rect(M.l, y - 4, utilW, 8, "F");
         drawText("DEPÓSITO", M.l + 3, y + 2, { bold: true, size: 12 });
-        drawText(fmtMoneda(depositoAjustado(dia)), M.l + utilW - 3, y + 2, { align: "right", bold: true, size: 12, color: 0 });
+        drawText(fmtMoneda(subResultante), M.l + utilW - 3, y + 2, { align: "right", bold: true, size: 12, color: 0 });
         y += 8;
 
         drawLine(M.l, y, M.l + utilW);
@@ -2168,12 +2251,7 @@ function imprimirReporteEnPantalla() {
         if (sinRegistro) {
             detalle = '<div class="print-day-empty">Sin registros para este día.</div>';
         } else if (esParada) {
-            const adminMonto = r ? num(r.administracion) : 0;
-            detalle = '<div class="print-day-detail">' +
-                '<div class="print-row print-row-ruta"><span>Ruta</span><span>' + esc(r ? (r.ruta || "-") : "-") + '</span></div>' +
-                '<div class="print-row"><span>Estado</span><span>Unidad en PARADA</span></div>' +
-                (adminMonto > 0 ? '<div class="print-row"><span>Administración de la parada</span><span>-' + fmtMoneda(adminMonto) + '</span></div>' : '') +
-                '</div>';
+            detalle = "";
         } else {
             const prod = num(r.produccion);
             const comb = num(r.combustible);
@@ -2185,7 +2263,7 @@ function imprimirReporteEnPantalla() {
             const conceptoGasto = r.gastoAdicional ? r.gastoAdicional.concepto : "";
             const adminPend = d.lineaAdminPendiente || 0;
             const subCombustible = prod - comb;
-            const subRestante = prod - comb - admin - ali - gasto;
+            const subResultante = depositoAjustado(d);
 
             detalle = '<div class="print-day-detail">' +
                 '<div class="print-row print-row-ruta"><span>Ruta</span><span>' + esc(r.ruta || "-") + '</span></div>' +
@@ -2196,10 +2274,10 @@ function imprimirReporteEnPantalla() {
                 '<div class="print-row"><span>- Administración</span><span>-' + fmtMoneda(admin) + '</span></div>' +
                 '<div class="print-row"><span>- Alimentación + limpieza</span><span>-' + fmtMoneda(ali) + '</span></div>' +
                 (gasto > 0 ? '<div class="print-row"><span>- ' + esc(conceptoGasto || "Gasto adicional") + '</span><span>-' + fmtMoneda(gasto) + '</span></div>' : '') +
-                '<div class="print-row print-row-sub"><span>Subtotal</span><span>' + fmtMoneda(subRestante) + '</span></div>' +
                 '<div class="print-row"><span>- Conductor (' + nf.format(condPct) + '%)</span><span>-' + fmtMoneda(condMonto) + '</span></div>' +
                 (adminPend > 0 ? '<div class="print-row print-row-pend"><span>- Administración pendiente (' + _textoOrigenPendiente(d.lineaAdminPendienteDias) + ')</span><span>-' + fmtMoneda(adminPend) + '</span></div>' : '') +
-                '<div class="print-row print-row-dep"><span>DEPÓSITO</span><span class="print-dep">' + fmtMoneda(depositoAjustado(d)) + '</span></div>' +
+                '<div class="print-row print-row-sub"><span>Subtotal</span><span class="print-dep">' + fmtMoneda(subResultante) + '</span></div>' +
+                '<div class="print-row print-row-dep"><span>DEPÓSITO</span><span class="print-dep">' + fmtMoneda(subResultante) + '</span></div>' +
                 '</div>';
         }
 
@@ -2209,7 +2287,7 @@ function imprimirReporteEnPantalla() {
                     '<div class="print-day-title"><strong>' + esc(d.dia) + '</strong> — ' + d.fecha + '</div>' +
                     '<span class="print-badge ' + badgeCls + '">' + badgeTxt + '</span>' +
                 '</div>' +
-                '<div class="print-day-body">' + detalle + '</div>' +
+                (detalle ? '<div class="print-day-body">' + detalle + '</div>' : '') +
             '</div>';
     });
 
