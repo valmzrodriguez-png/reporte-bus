@@ -12,8 +12,8 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 // Configuración de conexión con Supabase
-const SUPABASE_URL = 'https://jitzndfgjvecfcfilhkk.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_BxmzeB0IdA1Yym0SVZzZ-w_2X_Dsiem';
+const SUPABASE_URL = 'https://evyuphebqyyvwanqqory.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_MTjc0uFbhPIMK7V-Jm1LAg_NF8V8xCX';
 
 const TABLA_REGISTROS = "registros_semanales";
 
