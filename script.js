@@ -12,8 +12,8 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 // Configuración de conexión con Supabase
-const SUPABASE_URL = 'https://evyuphebqyyvwanqqory.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_MTjc0uFbhPIMK7V-Jm1LAg_NF8V8xCX';
+const SUPABASE_URL = 'https://wixoprrnzsmgvilrrydv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpeG9wcnJuenNtZ3ZpbHJyeWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzA3NTcsImV4cCI6MjEwNjkwNjc1N30.x5YnLVTulmTZrErPm33Cub4eGgQ1rhGO41T6o482Csc';
 
 const TABLA_REGISTROS = "registros_semanales";
 
@@ -306,20 +306,7 @@ function clasificarErrorGuardado(error) {
 
     /* PGRST204 / schema cache: columnas no migradas o
        caché de PostgREST desactualizada tras el ALTER */
-    if (codigo === "PGRST204" || /could not find the|schema cache|column .* of .* relation/i.test(mensaje)) {
-        return {
-            titulo: "Esquema desactualizado",
-            mensaje:
-                "La tabla «registros_semanales» todavía no expone las columnas nuevas (administración, alimentación, conductor, estado, observaciones).\n\n" +
-                "1) Ejecuta en el SQL Editor de Supabase:\n" +
-                "ALTER TABLE registros_semanales ADD COLUMN IF NOT EXISTS administracion NUMERIC(10,2) DEFAULT 0;\n" +
-                "ALTER TABLE registros_semanales ADD COLUMN IF NOT EXISTS observaciones TEXT DEFAULT NULL;\n" +
-                "(bloque completo en supabase/migrations/…sql)\n\n" +
-                "2) Si YA lo ejecutaste, recarga el caché con:\n" +
-                "NOTIFY pgrst, 'reload schema';\n\n" +
-                "Después recarga esta página.",
-        };
-    }
+    
 
     /* Fallos de red / DNS / timeout */
     if (/failed to fetch|networkerror|load failed|fetch failed|timeout|err_name_not_resolved/i.test(mensaje)) {
